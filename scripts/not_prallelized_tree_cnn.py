@@ -2,32 +2,61 @@ import os, sys, shutil, time, itertools
 import math, random
 from collections import OrderedDict, defaultdict
 
+import pickle
 import numpy as np
-import matplotlib.pyplot as plt
+
 import tensorflow as tf
+from tensorflow.python.ops import variable_scope, init_ops
 
 import utils
-import tree
+import treeDS
 
 MODEL_STR = 'rnn_embed=%d_l2=%f_lr=%f.weights'
 SAVE_DIR = './weights/'
+LOG_DIR = './logs/'
 
+def generate_batch(data, batch_size):
+    i1 = 0
+    data_size = len(data)
+    while True:
+        i2 = min(i1 + batch_size, data_size)
+        new_batch = data[i1:i2]
+        i1 = i2 % data_size
+
+        # pad the batch
+        node_by_level = defaultdict(list)
+        max_nodes = {}
+
+        for tree in new_batch:
+          treeDS.get_nodes_per_level(tree.root, node_by_level)
+
+        for level, nodes in node_by_level.iteritems():
+            max_nodes[level] = max([len(n.c) for n in nodes])
+        
+        for tree in new_batch:
+          treeDS.get_max_nodes(tree.root, max_nodes)
+          treeDS.pad(tree.root)
+        yield new_batch
 
 class Config(object):
   """Holds model hyperparams and data information.
   Model objects are passed a Config() object at instantiation.
   """
-  embed_size = 35
+  optimizer = 'Adam'
+  embed_size = 30
   label_size = 2
-  early_stopping = 2
-  anneal_threshold = 0.99
-  anneal_by = 1.5
-  max_epochs = 30
-  lr = 0.01
-  l2 = 0.02
+  early_stopping = 10
+  act_fun = 'relu'
+  max_epochs = 50
+  batch_size = 32
+  lr = 0.001
+  lr_embd = 0.1
+  l2 = 0.001
+  dropout1 = 0.5
+  dropout2 = 0.8
+  diff_lr = False
 
-  model_name = MODEL_STR % (embed_size, l2, lr)
-
+  model_name = MODEL_STR % (embed_size, lr, l2, dropout1, dropout2, batch_size)
 
 class RecursiveNetStaticGraph():
 

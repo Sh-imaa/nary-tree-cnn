@@ -1,2 +1,6 @@
-data/
 notebooks/
+data/
+weights/
+pre_trained/
+logs/
+*.pyc

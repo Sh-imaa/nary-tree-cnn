@@ -4,6 +4,7 @@ from collections import OrderedDict, defaultdict
 
 import pickle
 import numpy as np
+import argparse
 
 import tensorflow as tf
 from tensorflow.python.ops import variable_scope, init_ops
@@ -11,10 +12,9 @@ from tensorflow.python.ops import variable_scope, init_ops
 import utils
 import treeDS
 
-MODEL_STR = 'tree_cnn_embed=%d_lr=%f_l2=%f_dr1=%f_dr2=%f_batch_size=%d.weights'
-SAVE_DIR = './weights/'
+MODEL_STR = 'tree_cnn_lr=%f_l2=%f_dr1=%f_dr2=%f_batch_size=%d.weights'
+SAVE_DIR = '../weights/'
 LOG_DIR = './logs/'
-
 
 def generate_batch(data, batch_size):
     i1 = 0
@@ -45,20 +45,22 @@ class Config(object):
   Model objects are passed a Config() object at instantiation.
   """
   optimizer = 'Adam'
-  embed_size = 30
+  embed_size = 44
   label_size = 2
-  early_stopping = 10
+  early_stopping = 20
   act_fun = 'relu'
   max_epochs = 50
-  batch_size = 32
-  lr = 0.001
-  lr_embd = 0.1
-  l2 = 0.001
+  batch_size = 16
   dropout1 = 0.5
   dropout2 = 0.8
+  lr = 0.0015
+  lr_embd = 0.1
+  l2 = 0 
   diff_lr = False
+  trainable = True
+  name = 'ASTD'
 
-  model_name = MODEL_STR % (embed_size, lr, l2, dropout1, dropout2, batch_size)
+  model_name = MODEL_STR % (lr, l2, dropout1, dropout2, batch_size)
 
 
 class TreeCNN():
@@ -75,9 +77,12 @@ class TreeCNN():
     self.var_list = []
     self.epoch_size = len(self.train_data)
     # Load train data and build vocabulary
-    self.vocab = utils.Vocab()
-    train_sents = [t.get_words() for t in self.train_data]
-    self.vocab.construct(list(itertools.chain.from_iterable(train_sents)))
+    self.vocab = utils.Vocab_pre_trained_big(self.config.pre_trained_v_path,
+      self.config.pre_trained_i_path,
+      arabic=True)
+    config.embed_size = self.vocab.pre_trained_embeddings.shape[1]
+    # train_sents = [t.get_words() for t in self.train_data]
+    # self.vocab.construct(list(itertools.chain.from_iterable(train_sents)))
 
     # add input placeholders
     with tf.variable_scope('Input'):
@@ -104,12 +109,18 @@ class TreeCNN():
     
 
     with tf.variable_scope('Embeddings'):
-      embeddings = tf.get_variable('embeddings',
-                                    [len(self.vocab), self.config.embed_size],
-                                    initializer=tf.initializers.truncated_normal(stddev=0.1))
+      embeddings = tf.Variable(initial_value=self.vocab.pre_trained_embeddings,
+                    trainable=self.config.trainable,
+                    name="embeddings",
+                    dtype=tf.float32)
 
     with tf.variable_scope('Composition'):
       filters = tf.get_variable('filters', [2, self.config.embed_size, self.config.embed_size])
+      # filters1 = tf.get_variable('filters1', [2, self.config.embed_size, self.config.embed_size])
+      # filters2 = tf.get_variable('filters2', [3, self.config.embed_size, self.config.embed_size])
+      # filters3 = tf.get_variable('filters3', [4, self.config.embed_size, self.config.embed_size])
+      # W_c = tf.get_variable('W_c', [3 * self.config.embed_size, self.config.embed_size])
+
       b = tf.get_variable('b', [self.config.embed_size])
       self.var_list.extend([filters, b])
 
@@ -174,6 +185,7 @@ class TreeCNN():
     # add loss layer
     regularization_loss = self.config.l2 * (
       tf.nn.l2_loss(filters) + tf.nn.l2_loss(U))
+    # regularization_loss = self.config.l2 * (tf.nn.l2_loss(U))
     self.loss = tf.reduce_sum(
                 tf.nn.sparse_softmax_cross_entropy_with_logits(
                 logits=self.logits,
@@ -217,7 +229,7 @@ class TreeCNN():
       dropout2 = 1.0
     feed_dict = {
       self.dropout1_placeholder: dropout1,
-      self.dropout2_placeholder: dropout2, 
+      self.dropout2_placeholder: dropout2,
       self.roots_placeholder: [node_to_index[node] for node in nodes_list if node.isRoot],
       self.node_level_placeholder: [node.level for node in nodes_list],
       self.max_children_placeholder: [node.max_nodes for node in nodes_list], 
@@ -264,10 +276,10 @@ class TreeCNN():
           feed_dict=feed_dict)
         return root_prediction, root_acc
 
-
-  def run_epoch(self, new_model=False, verbose=True):
+  def run_epoch(self, batches, new_model=False, verbose=True):
     # training
-    random.shuffle(self.train_data)
+    # random.shuffle(self.train_data)
+    random.shuffle(batches)
     with tf.Session() as sess:
       if new_model:
         sess.run(tf.global_variables_initializer())
@@ -277,10 +289,12 @@ class TreeCNN():
 
       m = len(self.train_data)
       num_batches = int(m / self.config.batch_size) + 1
-      batch_generator = generate_batch(self.train_data, self.config.batch_size)
+      # batch_generator = generate_batch(self.train_data, self.config.batch_size)
       last_loss = float('inf')
       for batch in xrange(num_batches):
-        feed_dict = self.build_feed_dict(batch_generator.next())
+        # feed_dict = self.build_feed_dict(batches[batch])
+        feed_dict = batches[batch]
+
         loss_value, acc, _ = sess.run(
           [self.full_loss, self.root_acc, self.train_op],
           feed_dict=feed_dict)
@@ -298,17 +312,30 @@ class TreeCNN():
     best_val_epoch = 0
     best_dev_loss = float('inf')
     best_dev_acc = 0
-    last_dev_acc = 0
+
+    # prepare dev_data
+    # batch_generator = generate_batch(self.train_data, len(self.train_data))
+    # self.feed_dict_train = self.build_feed_dict(batch_generator.next())
 
     batch_generator = generate_batch(self.dev_data, len(self.dev_data))
     self.feed_dict_dev = self.build_feed_dict(batch_generator.next(), train=False)
 
+    batches = []
+    batch_generator = generate_batch(self.train_data, self.config.batch_size)
+    num_batches = int(len(self.train_data) / self.config.batch_size) + 1
+    for batch in xrange(num_batches):
+      batches.append(self.build_feed_dict(batch_generator.next()))
+
     for epoch in xrange(self.config.max_epochs):
       print '\nepoch %d' % epoch
       if epoch == 0:
-        self.run_epoch(new_model=True)
+        self.run_epoch(batches=batches, new_model=True)
       else:
-        self.run_epoch()
+        self.run_epoch(batches=batches)
+
+      # _, train_loss, train_acc = self.predict(self.train_data,
+      #   SAVE_DIR + '%s.temp' % self.config.model_name,
+      #   get_loss=True, dataset='train')
 
       _, dev_loss, dev_acc = self.predict(self.dev_data,
         SAVE_DIR + '%s.temp' % self.config.model_name,
@@ -335,7 +362,6 @@ class TreeCNN():
         stopped = epoch
         break
         #break
-      last_dev_acc = dev_acc
 
     if verbose:
       sys.stdout.write('\r')
@@ -344,6 +370,9 @@ class TreeCNN():
     print '\n\nstopped at %d\n' % stopped
     print 'best loss: ', best_dev_loss
     print 'best acc: ', best_dev_acc
+    with open(os.path.join(os.path.dirname(data_path), 'logs/log.txt'), 'a+') as f:
+      f.write('best loss: {}, best acc: {}, at epoch: {}'.format(
+        best_dev_loss, best_dev_acc, best_dev_epoch))
 
    
 
@@ -363,6 +392,12 @@ class TreeCNN():
       print '\nTest loss : {} --- test acc: {}'.format(test_loss, test_acc)
 
 
+    return {
+        'best_acc': best_dev_acc,
+        'best_loss': best_dev_loss
+    }
+
+
   def make_conf(self, labels, predictions):
     confmat = np.zeros([2, 2])
     for l, p in itertools.izip(labels, predictions):
@@ -378,61 +413,51 @@ class TreeCNN():
                         SAVE_DIR + '%s.data-00000-of-00001' % new_path)
 
 
-def run_model(test=False):
-  name = 'ATT'
+if __name__ == '__main__':
+
+  parser = argparse.ArgumentParser()
+  parser.add_argument('-d', "--dataset", default="ATT", required=False)
+  parser.add_argument('-b', "--batch", default=32, required=False)
+  parser.add_argument('-e', "--epoch", default=2, required=False)
+  parser.add_argument('-p', "--data_path", default='../data', required=False)
+  args = parser.parse_args()
+
   config = Config()
-  config.train_data_path = '../data/{}/split/balanced/train.csv'.format(name)
-  config.train_trees_path = '../data/{}/trees/balanced/train'.format(name)
 
-  config.dev_data_path = '../data/{}/split/balanced/dev.csv'.format(name)
-  config.dev_trees_path = '../data/{}/trees/balanced/dev'.format(name)
-
-  config.test_data_path = '../data/{}/split/balanced/test.csv'.format(name)
-  config.test_trees_path = '../data/{}/trees/balanced/test'.format(name)
-
-  train_pickle_file = '../data/{}/trees/balanced/train_{}.pkl'.format(name, name)
-  if os.path.isfile(train_pickle_file):
-    train_file = open(train_pickle_file,'r')
-    train_data = pickle.load(train_file)
-    print 'train trees loaded'
-  else:
-    train_data = treeDS.load_shrinked_trees(config.train_trees_path, config.train_data_path)
-    train_file = open(train_pickle_file, "wb")
-    pickle.dump(train_data, train_file)
-
-  dev_pickle_file = '../data/{}/trees/balanced/dev_{}.pkl'.format(name, name)
-  if os.path.isfile(dev_pickle_file):
-    dev_file = open(dev_pickle_file, 'r')
-    dev_data = pickle.load(dev_file)
-    print 'dev trees loaded'
-  else:
-    dev_data = treeDS.load_shrinked_trees(config.dev_trees_path, config.dev_data_path)
-    dev_file = open(dev_pickle_file, 'wb')
-    pickle.dump(dev_data, dev_file)
-
-  test_pickle_file = '../data/{}/trees/balanced/test_{}.pkl'.format(name, name)
-  if os.path.isfile(test_pickle_file):
-    test_file = open(test_pickle_file, 'r')
-    test_data = pickle.load(test_file)
-    print 'test trees loaded'
-  else:
-    test_data = treeDS.load_shrinked_trees(config.test_trees_path, config.test_data_path)
-    test_file = open(test_pickle_file, 'wb')
-    pickle.dump(test_data, test_file)
+  name = args.dataset
+  config.batch_size = args.batch
+  config.max_epochs = args.epoch
+  data_path = args.data_path
   
+  config.data_path = os.path.join(data_path, '{}-balanced-not-linked.csv'.format(name))  
+  config.trees_path = os.path.join(data_path, 'trees/{}'.format(name))
+  config.pre_trained_v_path = os.path.join(os.path.dirname(data_path),
+    'pre_trained/cbow_300/{}/all_vocab/vectors.npy').format(name)
+  config.pre_trained_i_path = os.path.join(os.path.dirname(data_path),
+    'pre_trained/cbow_300/{}/all_vocab/w2indx.pkl').format(name)
 
-  random.shuffle(train_data)
+  pickle_file = os.path.join(data_path, 'generated_trees/{}.pkl'.format(name))
+  if os.path.isfile(pickle_file):
+    f = open(pickle_file,'r')
+    data = pickle.load(f)
+  else:
+    data = treeDS.load_shrinked_trees(config.trees_path, config.data_path)
+    f = open(pickle_file, "wb")
+    pickle.dump(data, f)
+  
+  train_perc = int(len(data) * 0.9)
+  train_data = data[:train_perc]
+  dev_data = data[train_perc:]
+  test_data = None
+  # random.shuffle(train_data)
+  train_lens = [(len(t.get_words()), t) for t in train_data]
+  train_lens.sort(key=lambda x:x[0])
+  train_data = [t for i, t in train_lens]
+  del train_lens
   model = TreeCNN(config, train_data, dev_data, test_data)
 
   start_time = time.time()
-  stats = model.train(verbose=True, test=test)
-  print 'Done'
+  stats = model.train(verbose=True)
   end_time = time.time()
-  print 'Time for training ', config.model_name, ' is ', ((end_time - start_time) / 60), 'mins'
-
-
-if __name__ == '__main__':
-
-  run_model(test=True)
-  
-  
+  print 'Done'
+  print 'Time for training ', config.model_name, ' is ', ((end_time - start_time) / 60), 'mins'   
