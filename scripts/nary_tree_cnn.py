@@ -271,8 +271,6 @@ class TreeCNN():
         return root_prediction, root_acc
 
   def run_epoch(self, batches, new_model=False, verbose=True):
-    # training
-    # random.shuffle(self.train_data)
     random.shuffle(batches)
     with tf.Session() as sess:
       if new_model:
@@ -283,12 +281,9 @@ class TreeCNN():
 
       m = len(self.train_data)
       num_batches = int(m / self.config.batch_size) + 1
-      # batch_generator = generate_batch(self.train_data, self.config.batch_size)
       last_loss = float('inf')
       for batch in xrange(num_batches):
-        # feed_dict = self.build_feed_dict(batches[batch])
         feed_dict = batches[batch]
-
         loss_value, acc, _ = sess.run(
           [self.full_loss, self.root_acc, self.train_op],
           feed_dict=feed_dict)
@@ -307,10 +302,6 @@ class TreeCNN():
     best_dev_loss = float('inf')
     best_dev_acc = 0
 
-    # prepare dev_data
-    # batch_generator = generate_batch(self.train_data, len(self.train_data))
-    # self.feed_dict_train = self.build_feed_dict(batch_generator.next())
-
     batch_generator = generate_batch(self.dev_data, len(self.dev_data))
     self.feed_dict_dev = self.build_feed_dict(batch_generator.next(), train=False)
 
@@ -326,10 +317,6 @@ class TreeCNN():
         self.run_epoch(batches=batches, new_model=True)
       else:
         self.run_epoch(batches=batches)
-
-      # _, train_loss, train_acc = self.predict(self.train_data,
-      #   SAVE_DIR + '%s.temp' % self.config.model_name,
-      #   get_loss=True, dataset='train')
 
       _, dev_loss, dev_acc = self.predict(self.dev_data,
         SAVE_DIR + '%s.temp' % self.config.model_name,
@@ -414,6 +401,7 @@ if __name__ == '__main__':
   parser.add_argument('-b', "--batch", default=32, required=False)
   parser.add_argument('-e', "--epoch", default=2, required=False)
   parser.add_argument('-p', "--data_path", default='../data', required=False)
+  parser.add_argument('-b', "--bucketing", default=True, required=False)
   args = parser.parse_args()
 
   config = Config()
@@ -443,11 +431,12 @@ if __name__ == '__main__':
   train_data = data[:train_perc]
   dev_data = data[train_perc:]
   test_data = None
-  # random.shuffle(train_data)
-  train_lens = [(len(t.get_words()), t) for t in train_data]
-  train_lens.sort(key=lambda x:x[0])
-  train_data = [t for i, t in train_lens]
-  del train_lens
+
+  if args.bucketing:
+    train_lens = [(len(t.get_words()), t) for t in train_data]
+    train_lens.sort(key=lambda x:x[0])
+    train_data = [t for i, t in train_lens]
+    del train_lens
   model = TreeCNN(config, train_data, dev_data, test_data)
 
   start_time = time.time()
