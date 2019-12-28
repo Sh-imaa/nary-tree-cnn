@@ -338,11 +338,9 @@ class TreeCNN():
         self.copy_weight_files(self.config.model_name + '.loss', self.config.model_name + '.temp')
         best_dev_loss = dev_loss
 
-     # if model has not imprvoved for a while stop
       if (epoch - best_dev_epoch) > self.config.early_stopping:
         stopped = epoch
         break
-        #break
 
     if verbose:
       sys.stdout.write('\r')
@@ -401,7 +399,7 @@ if __name__ == '__main__':
   parser.add_argument('-b', "--batch", default=32, required=False)
   parser.add_argument('-e', "--epoch", default=2, required=False)
   parser.add_argument('-p', "--data_path", default='../data', required=False)
-  parser.add_argument('-b', "--bucketing", default=True, required=False)
+  parser.add_argument('-k', "--bucketing", default=True, required=False)
   args = parser.parse_args()
 
   config = Config()
