@@ -1,5 +1,5 @@
 import os, sys, shutil, time, itertools
-import math, random
+import math, random, argparse
 from collections import OrderedDict, defaultdict
 
 import pickle
@@ -11,8 +11,8 @@ from tensorflow.python.ops import variable_scope, init_ops
 import utils
 import treeDS
 
-MODEL_STR = 'rnn_embed=%d_l2=%f_lr=%f.weights'
-SAVE_DIR = './weights/'
+MODEL_STR = 'tree_cnn_lr=%f_l2=%f_dr1=%f_dr2=%f_batch_size=%d.weights'
+SAVE_DIR = '../weights/'
 LOG_DIR = './logs/'
 
 def generate_batch(data, batch_size):
@@ -43,42 +43,51 @@ class Config(object):
   Model objects are passed a Config() object at instantiation.
   """
   optimizer = 'Adam'
-  embed_size = 30
+  embed_size = 44
   label_size = 2
-  early_stopping = 10
+  early_stopping = 20
   act_fun = 'relu'
   max_epochs = 50
-  batch_size = 32
-  lr = 0.001
-  lr_embd = 0.1
-  l2 = 0.001
+  batch_size = 16
   dropout1 = 0.5
   dropout2 = 0.8
+  lr = 0.0015
+  lr_embd = 0.1
+  l2 = 0 
   diff_lr = False
+  trainable = True
+  name = 'ASTD'
 
-  model_name = MODEL_STR % (embed_size, lr, l2, dropout1, dropout2, batch_size)
+  model_name = MODEL_STR % (lr, l2, dropout1, dropout2, batch_size)
 
-class RecursiveNetStaticGraph():
+class TreeCNN():
 
-  def __init__(self, config):
+  def __init__(self, config, train_data, dev_data, test_data=None):
     self.config = config
+    self.train_data = train_data
+    self.dev_data = dev_data
+    self.test_data = test_data
 
+    print 'Training on {} examples, validating on {} examples.'.format(
+      len(self.train_data), len(self.dev_data))
+    
+    self.var_list = []
+    self.epoch_size = len(self.train_data)
     # Load train data and build vocabulary
-    self.train_data, self.dev_data, self.test_data = tree.simplified_data(700,
-                                                                          100,
-                                                                          200)
-    # print("data ",self.train_data)
-    self.vocab = utils.Vocab()
-    train_sents = [t.get_words() for t in self.train_data]
-    self.vocab.construct(list(itertools.chain.from_iterable(train_sents)))
+    self.vocab = utils.Vocab_pre_trained_big(self.config.pre_trained_v_path,
+      self.config.pre_trained_i_path,
+      arabic=True)
+    config.embed_size = self.vocab.pre_trained_embeddings.shape[1]
 
     # add input placeholders
+    self.dropout1_placeholder = tf.placeholder(
+        tf.float32, (None), name='dropout1_placeholder')
+    self.dropout2_placeholder = tf.placeholder(
+        tf.float32, (None), name='dropout2_placeholder')
     self.is_leaf_placeholder = tf.placeholder(
         tf.bool, (None), name='is_leaf_placeholder')
-    self.left_children_placeholder = tf.placeholder(
-        tf.int32, (None), name='left_children_placeholder')
-    self.right_children_placeholder = tf.placeholder(
-        tf.int32, (None), name='right_children_placeholder')
+    self.children_placeholder = tf.placeholder(
+        tf.string, (None), name='children_placeholder')
     self.node_word_indices_placeholder = tf.placeholder(
         tf.int32, (None), name='node_word_indices_placeholder')
     self.labels_placeholder = tf.placeholder(
@@ -86,15 +95,22 @@ class RecursiveNetStaticGraph():
 
     # add model variables
     with tf.variable_scope('Embeddings'):
-      embeddings = tf.get_variable('embeddings',
-                                   [len(self.vocab), self.config.embed_size])
+      embeddings = tf.Variable(initial_value=self.vocab.pre_trained_embeddings,
+                    trainable=self.config.trainable,
+                    name="embeddings",
+                    dtype=tf.float32)
+
     with tf.variable_scope('Composition'):
-      W1 = tf.get_variable('W1',
-                           [2 * self.config.embed_size, self.config.embed_size])
-      b1 = tf.get_variable('b1', [1, self.config.embed_size])
+      filters = tf.get_variable('filters', [2, self.config.embed_size, self.config.embed_size])
+      b = tf.get_variable('b', [self.config.embed_size])
+      self.var_list.extend([filters, b])
+
+
     with tf.variable_scope('Projection'):
-      U = tf.get_variable('U', [self.config.embed_size, self.config.label_size])
-      bs = tf.get_variable('bs', [1, self.config.label_size])
+      U = tf.get_variable('U', [self.config.embed_size, self.config.label_size],
+                          initializer=tf.initializers.truncated_normal(stddev=0.1))
+      bs = tf.get_variable('bs', [1, self.config.label_size], initializer=tf.constant_initializer(0.1))
+      self.var_list.extend([U, bs])
 
     # build recursive graph
 
@@ -104,32 +120,36 @@ class RecursiveNetStaticGraph():
         dynamic_size=True,
         clear_after_read=False,
         infer_shape=False)
-
+            
     def embed_word(word_index):
-      with tf.device('/cpu:0'):
-        return tf.expand_dims(tf.gather(embeddings, word_index), 0)
+      return tf.expand_dims(tf.gather(embeddings, word_index), 0)
 
-    def combine_children(left_tensor, right_tensor):
-      return tf.nn.relu(tf.matmul(tf.concat([left_tensor, right_tensor],1), W1) + b1)
+    def combine_children(children_tensors):
+      children_tensors = tf.reshape(children_tensors, [1, -1, self.config.embed_size])
+      conv = tf.nn.conv1d(children_tensors, filters, stride=1, padding="SAME")
+      h = tf.nn.relu(tf.nn.bias_add(conv, b))
+      pooled  = tf.reduce_max(h, axis=1, keepdims=False)
+
+      return tf.nn.dropout(pooled, self.dropout1_placeholder)
 
     def loop_body(tensor_array, i):
       node_is_leaf = tf.gather(self.is_leaf_placeholder, i)
       node_word_index = tf.gather(self.node_word_indices_placeholder, i)
-      left_child = tf.gather(self.left_children_placeholder, i)
-      right_child = tf.gather(self.right_children_placeholder, i)
-      print(left_child,"left_child")
+      children = [tf.gather(self.children_placeholder, i)]
+      children_values = tf.to_int32(tf.string_to_number(tf.string_split(children).values))
       node_tensor = tf.cond(
           node_is_leaf,
           lambda: embed_word(node_word_index),
-          lambda: combine_children(tensor_array.read(left_child),
-                                   tensor_array.read(right_child)))
+          lambda: combine_children(tensor_array.gather(children_values)))
       tensor_array = tensor_array.write(i, node_tensor)
       i = tf.add(i, 1)
       return tensor_array, i
 
     loop_cond = lambda tensor_array, i: \
         tf.less(i, tf.squeeze(tf.shape(self.is_leaf_placeholder)))
-    self.tensor_array, _ = tf.while_loop(loop_cond, loop_body, [tensor_array, 0], parallel_iterations=1)
+    self.tensor_array, _ = tf.while_loop(loop_cond, loop_body,
+                                         [tensor_array, 0],
+                                         parallel_iterations=1)
 
     # add projection layer
     self.logits = tf.matmul(self.tensor_array.concat(), U) + bs
@@ -139,7 +159,7 @@ class RecursiveNetStaticGraph():
 
     # add loss layer
     regularization_loss = self.config.l2 * (
-        tf.nn.l2_loss(W1) + tf.nn.l2_loss(U))
+        tf.nn.l2_loss(filters) + tf.nn.l2_loss(U))
     included_indices = tf.where(tf.less(self.labels_placeholder, 2))
     self.full_loss = regularization_loss + tf.reduce_sum(
         tf.nn.sparse_softmax_cross_entropy_with_logits(
@@ -153,24 +173,29 @@ class RecursiveNetStaticGraph():
     self.train_op = tf.train.GradientDescentOptimizer(self.config.lr).minimize(
         self.full_loss)
 
-  def build_feed_dict(self, node):
-    nodes_list = []
-    tree.leftTraverse(node, lambda node, args: args.append(node), nodes_list)
+  def build_feed_dict(self, node, label, train=True):
+    nodes_list = [] 
+    treeDS.traverse(node, lambda node, args: args.append(node), nodes_list)
     node_to_index = OrderedDict()
     for i in xrange(len(nodes_list)):
       node_to_index[nodes_list[i]] = i
+    if train:
+      dropout1 = self.config.dropout1
+      dropout2 = self.config.dropout2
+    else:
+      dropout1 = 1.0
+      dropout2 = 1.0
+
     feed_dict = {
+        self.dropout1_placeholder: dropout1,
+        self.dropout2_placeholder: dropout2,
         self.is_leaf_placeholder: [node.isLeaf for node in nodes_list],
-        self.left_children_placeholder: [node_to_index[node.left] if
-                                         not node.isLeaf else -1
-                                         for node in nodes_list],
-        self.right_children_placeholder: [node_to_index[node.right] if
-                                          not node.isLeaf else -1
-                                          for node in nodes_list],
         self.node_word_indices_placeholder: [self.vocab.encode(node.word) if
                                              node.word else -1
                                              for node in nodes_list],
-        self.labels_placeholder: [node.label for node in nodes_list]
+        self.children_placeholder: [' '.join([str(node_to_index[child]) for child in node.c])
+                                  for node in nodes_list],
+        self.labels_placeholder: [label],
     }
     return feed_dict
 
@@ -182,7 +207,7 @@ class RecursiveNetStaticGraph():
       saver = tf.train.Saver()
       saver.restore(sess, weights_path)
       for tree in trees:
-        feed_dict = self.build_feed_dict(tree.root)
+        feed_dict = self.build_feed_dict(tree.root, tree.label, train=False)
         if get_loss:
           root_prediction, loss = sess.run(
               [self.root_prediction, self.root_loss], feed_dict=feed_dict)
@@ -203,8 +228,7 @@ class RecursiveNetStaticGraph():
         saver = tf.train.Saver()
         saver.restore(sess, SAVE_DIR + '%s.temp' % self.config.model_name)
       for step, tree in enumerate(self.train_data):
-        print(tree,"tree")
-        feed_dict = self.build_feed_dict(tree.root)
+        feed_dict = self.build_feed_dict(tree.root, tree.label)
         loss_value, _ = sess.run([self.full_loss, self.train_op],
                                  feed_dict=feed_dict)
         loss_history.append(loss_value)
@@ -289,51 +313,51 @@ class RecursiveNetStaticGraph():
       confmat[l, p] += 1
     return confmat
 
+if __name__ == '__main__':
 
-def plot_loss_history(stats):
-  plt.plot(stats['loss_history'])
-  plt.title('Loss history')
-  plt.xlabel('Iteration')
-  plt.ylabel('Loss')
-  plt.savefig('loss_history.png')
-  plt.show()
+  parser = argparse.ArgumentParser()
+  parser.add_argument('-d', "--dataset", default="ATT", required=False)
+  parser.add_argument('-b', "--batch", default=32, required=False)
+  parser.add_argument('-e', "--epoch", default=2, required=False)
+  parser.add_argument('-p', "--data_path", default='../data', required=False)
+  args = parser.parse_args()
 
-
-def test_RNN():
-  """Test RNN model implementation.
-  """
   config = Config()
-  model = RecursiveNetStaticGraph(config)
-  #graph_def = tf.get_default_graph().as_graph_def()
-  #with open('static_graph.pb', 'wb') as f:
-  #  f.write(graph_def.SerializeToString())
+
+  name = args.dataset
+  config.batch_size = args.batch
+  config.max_epochs = args.epoch
+  data_path = args.data_path
+  
+  config.data_path = os.path.join(data_path, '{}-balanced-not-linked.csv'.format(name))  
+  config.trees_path = os.path.join(data_path, 'trees/{}'.format(name))
+  config.pre_trained_v_path = os.path.join(os.path.dirname(data_path),
+    'pre_trained/cbow_300/{}/all_vocab/vectors.npy').format(name)
+  config.pre_trained_i_path = os.path.join(os.path.dirname(data_path),
+    'pre_trained/cbow_300/{}/all_vocab/w2indx.pkl').format(name)
+
+  pickle_file = os.path.join(data_path, 'generated_trees/{}.pkl'.format(name))
+  if os.path.isfile(pickle_file):
+    f = open(pickle_file,'r')
+    data = pickle.load(f)
+  else:
+    data = treeDS.load_shrinked_trees(config.trees_path, config.data_path)
+    f = open(pickle_file, "wb")
+    pickle.dump(data, f)
+  
+  train_perc = int(len(data) * 0.9)
+  train_data = data[:train_perc]
+  dev_data = data[train_perc:]
+  test_data = None
+  # random.shuffle(train_data)
+  train_lens = [(len(t.get_words()), t) for t in train_data]
+  train_lens.sort(key=lambda x:x[0])
+  train_data = [t for i, t in train_lens]
+  del train_lens
+  model = TreeCNN(config, train_data, dev_data, test_data)
 
   start_time = time.time()
   stats = model.train(verbose=True)
-  print 'Training time: {}'.format(time.time() - start_time)
-
-  plot_loss_history(stats)
-
-  start_time = time.time()
-  val_preds, val_losses = model.predict(
-      model.dev_data,
-      SAVE_DIR + '%s.temp' % model.config.model_name,
-      get_loss=True)
-  val_labels = [t.root.label for t in model.dev_data]
-  val_acc = np.equal(val_preds, val_labels).mean()
-  print val_acc
-
-  print '-' * 20
-  print 'Test'
-  predictions, _ = model.predict(model.test_data,
-                                 SAVE_DIR + '%s.temp' % model.config.model_name)
-  labels = [t.root.label for t in model.test_data]
-  print model.make_conf(labels, predictions)
-  test_acc = np.equal(predictions, labels).mean()
-  print 'Test acc: {}'.format(test_acc)
-  print 'Inference time, dev+test: {}'.format(time.time() - start_time)
-  print '-' * 20
-
-
-if __name__ == '__main__':
-  test_RNN()
+  end_time = time.time()
+  print 'Done'
+  print 'Time for training ', config.model_name, ' is ', ((end_time - start_time) / 60), 'mins'   

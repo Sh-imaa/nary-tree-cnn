@@ -116,14 +116,8 @@ class TreeCNN():
 
     with tf.variable_scope('Composition'):
       filters = tf.get_variable('filters', [2, self.config.embed_size, self.config.embed_size])
-      # filters1 = tf.get_variable('filters1', [2, self.config.embed_size, self.config.embed_size])
-      # filters2 = tf.get_variable('filters2', [3, self.config.embed_size, self.config.embed_size])
-      # filters3 = tf.get_variable('filters3', [4, self.config.embed_size, self.config.embed_size])
-      # W_c = tf.get_variable('W_c', [3 * self.config.embed_size, self.config.embed_size])
-
       b = tf.get_variable('b', [self.config.embed_size])
       self.var_list.extend([filters, b])
-
 
     with tf.variable_scope('Projection'):
       U = tf.get_variable('U', [self.config.embed_size, self.config.label_size],
