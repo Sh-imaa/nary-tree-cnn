@@ -349,11 +349,7 @@ if __name__ == '__main__':
   train_data = data[:train_perc]
   dev_data = data[train_perc:]
   test_data = None
-  # random.shuffle(train_data)
-  train_lens = [(len(t.get_words()), t) for t in train_data]
-  train_lens.sort(key=lambda x:x[0])
-  train_data = [t for i, t in train_lens]
-  del train_lens
+
   model = TreeCNN(config, train_data, dev_data, test_data)
 
   start_time = time.time()
