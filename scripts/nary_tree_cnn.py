@@ -210,7 +210,7 @@ class TreeCNN():
   def build_feed_dict(self, trees, train=True):
     nodes_list = []
     for tree in trees:
-      treeDS.traverse(tree.root,  lambda node, args: args.append(node), nodes_list)
+      treeDS.traverse(tree.root,  lambda node, args: args.append(node), [nodes_list])
 
     node_to_index = OrderedDict()
     for i in xrange(len(nodes_list)):

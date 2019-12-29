@@ -1,5 +1,6 @@
 import os
 import re
+import random
 import copy
 from collections import defaultdict
 
@@ -57,7 +58,7 @@ class Tree:
 
     def get_words(self):
         nodes_list = []
-        traverse(self.root,  lambda node, args: args.append(node), nodes_list)
+        traverse(self.root,  lambda node, args: args.append(node), [nodes_list])
         return [node.word for node in nodes_list if node.isLeaf]
 
         
@@ -108,7 +109,7 @@ class Tree:
 def traverse(node, nodeFn=None, args=None):
     for child in node.c:
         traverse(child, nodeFn, args)
-    nodeFn(node, args)
+    nodeFn(node, *args)
 
 def shrink(node, parent, j=0):
     if not node.c:
@@ -156,24 +157,6 @@ def generate_levels(node):
     node.level = max(levels) + 1
     return node.level
 
-
-# def get_max_nodes(node):
-#     if node.isLeaf:
-#         node.max_nodes = 0
-#         return
-#     if node.isRoot:
-#         node.max_nodes = len(node.c)
-        
-#     nodes = [len(n.c) for n in node.c]
-#     if not nodes:
-#         node.max_nodes = len(node.c)
-#         return 
-#     max_nodes = max(nodes)
-#     for n in node.c:
-#         if not n.isLeaf:
-#             n.max_nodes = max_nodes
-#         get_max_nodes(n)
-
 def pad(node):
     if node.isLeaf:
         return
@@ -199,15 +182,60 @@ def load_shrinked_trees(trees_path, data_path):
                 tree_list = get_sentences(lines)
                 t = Tree(tree_list, df[df.id == int(folder)].polarity.values[0])
                 shrink(t.root, None)
-                try:
-                    generate_levels(t.root)
-                except:
-                    print(folder)
+                generate_levels(t.root)
                 trees.append(t)
-                if len(t.get_words()) == 0:
-                    print folder
-                    print(tree_list)
 
     print 'trees loaded'
     return trees
+
+def get_height(node, level=0):
+    if node.isLeaf:
+        return level
+    return max([get_height(n, level + 1) for n in node.c])
+
+def edit_tree(tree, edits=1):
+    h = get_height(tree.root)
+    # pick any valid level to edit
+    level = random.randrange(2, h)
+    traverse(tree.root, edit_level, [level, 1, [0]])
+
+def edit_level(node, level, max_edits=1, edits_c=[0]):
+    if (edits_c[0] != max_edits) and (node.level == level):
+        if edit_node(node): edits_c[0] += 1
+
+def edit_node(node):
+    if node.level < 2:
+        return node
+    all_c = []
+    old_order = []
+    for c in node.c:
+        if c.isLeaf:
+            all_c.append(c)
+            old_order.append(1)
+        else:
+            all_c += c.c
+            old_order.append(len(c.c))
+    n = len(all_c)
+    new_c = []
+    new_order = []
+    while (n > 2):
+        m = random.randrange(1, n, 1)
+        new_order.append(m)
+        if m == 1:
+            new_c.append(all_c.pop())
+        else:
+            new_n = Node('edited')
+            new_n.c = all_c[:m]
+            del all_c[:m]
+            new_c.append(new_n)
+        n = n - m
+    # add what left
+    if all_c:
+        new_c += all_c
+        new_order.append(len(all_c))
+    node.c = new_c
+    return new_order != old_order
+
+
+
 
