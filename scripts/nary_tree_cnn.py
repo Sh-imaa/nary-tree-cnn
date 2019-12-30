@@ -236,14 +236,6 @@ class TreeCNN():
       self.n_examples_placeholder : len(trees),
     }
     return feed_dict
-  
-
-
-  def make_conf(self, labels, predictions):
-    confmat = np.zeros([2, 2])
-    for l, p in itertools.izip(labels, predictions):
-      confmat[l, p] += 1
-    return confmat
 
   def predict(self, trees, weights_path, get_loss=False, dataset='test'):
     """Make predictions from the provided model."""
@@ -375,13 +367,6 @@ class TreeCNN():
         'best_acc': best_dev_acc,
         'best_loss': best_dev_loss
     }
-
-
-  def make_conf(self, labels, predictions):
-    confmat = np.zeros([2, 2])
-    for l, p in itertools.izip(labels, predictions):
-      confmat[l, p] += 1
-    return confmat
 
   def copy_weight_files(self, new_path, old_path):
     shutil.copyfile(SAVE_DIR + '%s.index' % old_path,

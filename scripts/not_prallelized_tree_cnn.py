@@ -68,8 +68,8 @@ class TreeCNN():
     self.dev_data = dev_data
     self.test_data = test_data
 
-    print 'Training on {} examples, validating on {} examples.'.format(
-      len(self.train_data), len(self.dev_data))
+    print('Training on {} examples, validating on {} examples.'.format(
+      len(self.train_data), len(self.dev_data)))
     
     self.var_list = []
     self.epoch_size = len(self.train_data)
@@ -177,7 +177,7 @@ class TreeCNN():
     nodes_list = [] 
     treeDS.traverse(node, lambda node, args: args.append(node), [nodes_list])
     node_to_index = OrderedDict()
-    for i in xrange(len(nodes_list)):
+    for i in range(len(nodes_list)):
       node_to_index[nodes_list[i]] = i
     if train:
       dropout1 = self.config.dropout1
@@ -239,6 +239,7 @@ class TreeCNN():
       saver = tf.train.Saver()
       if not os.path.exists(SAVE_DIR):
         os.makedirs(SAVE_DIR)
+      print('before saving', SAVE_DIR + '%s.temp' % self.config.model_name)
       saver.save(sess, SAVE_DIR + '%s.temp' % self.config.model_name)
     # statistics
     train_preds, _ = self.predict(self.train_data,
@@ -247,16 +248,14 @@ class TreeCNN():
         self.dev_data,
         SAVE_DIR + '%s.temp' % self.config.model_name,
         get_loss=True)
-    train_labels = [t.root.label for t in self.train_data]
-    val_labels = [t.root.label for t in self.dev_data]
+    train_labels = [t.label for t in self.train_data]
+    val_labels = [t.label for t in self.dev_data]
     train_acc = np.equal(train_preds, train_labels).mean()
     val_acc = np.equal(val_preds, val_labels).mean()
 
-    print
-    print 'Training acc (only root node): {}'.format(train_acc)
-    print 'Valiation acc (only root node): {}'.format(val_acc)
-    print self.make_conf(train_labels, train_preds)
-    print self.make_conf(val_labels, val_preds)
+    print()
+    print('Training acc (only root node): {}'.format(train_acc))
+    print('Valiation acc (only root node): {}'.format(val_acc))
     return train_acc, val_acc, loss_history, np.mean(val_losses)
 
   def train(self, verbose=True):
@@ -267,8 +266,8 @@ class TreeCNN():
     best_val_loss = float('inf')
     best_val_epoch = 0
     stopped = -1
-    for epoch in xrange(self.config.max_epochs):
-      print 'epoch %d' % epoch
+    for epoch in range(self.config.max_epochs):
+      print('epoch %d' % epoch)
       if epoch == 0:
         train_acc, val_acc, loss_history, val_loss = self.run_epoch(
             new_model=True)
@@ -278,17 +277,9 @@ class TreeCNN():
       train_acc_history.append(train_acc)
       val_acc_history.append(val_acc)
 
-      #lr annealing
-      epoch_loss = np.mean(loss_history)
-      if epoch_loss > prev_epoch_loss * self.config.anneal_threshold:
-        self.config.lr /= self.config.anneal_by
-        print 'annealed lr to %f' % self.config.lr
-      prev_epoch_loss = epoch_loss
-
       #save if model has improved on val
       if val_loss < best_val_loss:
-        shutil.copyfile(SAVE_DIR + '%s.temp' % self.config.model_name,
-                        SAVE_DIR + '%s' % self.config.model_name)
+        self.copy_weight_files(self.config.model_name, self.config.model_name + '.temp')
         best_val_loss = val_loss
         best_val_epoch = epoch
 
@@ -300,18 +291,22 @@ class TreeCNN():
       sys.stdout.write('\r')
       sys.stdout.flush()
 
-    print '\n\nstopped at %d\n' % stopped
+    print('\n\nstopped at %d\n' % stopped)
     return {
         'loss_history': complete_loss_history,
         'train_acc_history': train_acc_history,
         'val_acc_history': val_acc_history,
     }
 
-  def make_conf(self, labels, predictions):
-    confmat = np.zeros([2, 2])
-    for l, p in itertools.izip(labels, predictions):
-      confmat[l, p] += 1
-    return confmat
+
+  def copy_weight_files(self, new_path, old_path):
+    shutil.copyfile(SAVE_DIR + '%s.index' % old_path,
+                        SAVE_DIR + '%s.index' % new_path)
+    shutil.copyfile(SAVE_DIR + '%s.meta' % old_path,
+                        SAVE_DIR + '%s.meta' % new_path)
+    shutil.copyfile(SAVE_DIR + '%s.data-00000-of-00001' % old_path,
+                        SAVE_DIR + '%s.data-00000-of-00001' % new_path)
+
 
 if __name__ == '__main__':
 
@@ -338,7 +333,7 @@ if __name__ == '__main__':
 
   pickle_file = os.path.join(data_path, 'generated_trees/{}.pkl'.format(name))
   if os.path.isfile(pickle_file):
-    f = open(pickle_file,'r')
+    f = open(pickle_file,'rb')
     data = pickle.load(f)
   else:
     data = treeDS.load_shrinked_trees(config.trees_path, config.data_path)
@@ -355,5 +350,5 @@ if __name__ == '__main__':
   start_time = time.time()
   stats = model.train(verbose=True)
   end_time = time.time()
-  print 'Done'
-  print 'Time for training ', config.model_name, ' is ', ((end_time - start_time) / 60), 'mins'   
+  print('Done')
+  print('Time for training ', config.model_name, ' is ', ((end_time - start_time) / 60), 'mins')  
