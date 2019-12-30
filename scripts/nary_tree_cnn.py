@@ -31,7 +31,7 @@ def generate_batch(data, batch_size):
         for tree in new_batch:
           treeDS.get_nodes_per_level(tree.root, node_by_level)
 
-        for level, nodes in node_by_level.iteritems():
+        for level, nodes in node_by_level.items():
             max_nodes[level] = max([len(n.c) for n in nodes])
         
         for tree in new_batch:
@@ -71,8 +71,8 @@ class TreeCNN():
     self.dev_data = dev_data
     self.test_data = test_data
 
-    print 'Training on {} examples, validating on {} examples.'.format(
-      len(self.train_data), len(self.dev_data))
+    print('Training on {} examples, validating on {} examples.'.format(
+      len(self.train_data), len(self.dev_data)))
     
     self.var_list = []
     self.epoch_size = len(self.train_data)
@@ -213,7 +213,7 @@ class TreeCNN():
       treeDS.traverse(tree.root,  lambda node, args: args.append(node), [nodes_list])
 
     node_to_index = OrderedDict()
-    for i in xrange(len(nodes_list)):
+    for i in range(len(nodes_list)):
         node_to_index[nodes_list[i]] = i
     if train:
       dropout1 = self.config.dropout1
@@ -253,7 +253,7 @@ class TreeCNN():
       
       if dataset == 'test':
         batch_generator = generate_batch(trees, len(trees))
-        feed_dict = self.build_feed_dict(batch_generator.next(), train=False)
+        feed_dict = self.build_feed_dict(next(batch_generator), train=False)
       elif dataset == 'train':
         feed_dict = self.feed_dict_train
       elif dataset == 'dev':
@@ -282,7 +282,7 @@ class TreeCNN():
       m = len(self.train_data)
       num_batches = int(m / self.config.batch_size) + 1
       last_loss = float('inf')
-      for batch in xrange(num_batches):
+      for batch in range(num_batches):
         feed_dict = batches[batch]
         loss_value, acc, _ = sess.run(
           [self.full_loss, self.root_acc, self.train_op],
@@ -303,16 +303,16 @@ class TreeCNN():
     best_dev_acc = 0
 
     batch_generator = generate_batch(self.dev_data, len(self.dev_data))
-    self.feed_dict_dev = self.build_feed_dict(batch_generator.next(), train=False)
+    self.feed_dict_dev = self.build_feed_dict(next(batch_generator), train=False)
 
     batches = []
     batch_generator = generate_batch(self.train_data, self.config.batch_size)
     num_batches = int(len(self.train_data) / self.config.batch_size) + 1
-    for batch in xrange(num_batches):
-      batches.append(self.build_feed_dict(batch_generator.next()))
+    for batch in range(num_batches):
+      batches.append(self.build_feed_dict(next(batch_generator)))
 
-    for epoch in xrange(self.config.max_epochs):
-      print '\nepoch %d' % epoch
+    for epoch in range(self.config.max_epochs):
+      print('\nepoch %d' % epoch)
       if epoch == 0:
         self.run_epoch(batches=batches, new_model=True)
       else:
@@ -321,7 +321,7 @@ class TreeCNN():
       _, dev_loss, dev_acc = self.predict(self.dev_data,
         SAVE_DIR + '%s.temp' % self.config.model_name,
         get_loss=True, dataset='dev')
-      print '\nDev loss : {} --- dev acc: {}'.format(dev_loss, dev_acc)
+      print('\nDev loss : {} --- dev acc: {}'.format(dev_loss, dev_acc))
 
       if dev_acc > best_dev_acc:
         self.copy_weight_files(self.config.model_name, self.config.model_name + '.temp')
@@ -346,9 +346,9 @@ class TreeCNN():
       sys.stdout.write('\r')
       sys.stdout.flush()
 
-    print '\n\nstopped at %d\n' % stopped
-    print 'best loss: ', best_dev_loss
-    print 'best acc: ', best_dev_acc
+    print('\n\nstopped at %d\n' % stopped)
+    print('best loss: ', best_dev_loss)
+    print('best acc: ', best_dev_acc)
     with open(os.path.join(os.path.dirname(data_path), 'logs/log.txt'), 'a+') as f:
       f.write('best loss: {}, best acc: {}, at epoch: {}'.format(
         best_dev_loss, best_dev_acc, best_dev_epoch))
@@ -359,16 +359,16 @@ class TreeCNN():
       _, test_loss, test_acc = self.predict(self.test_data,
             SAVE_DIR + '%s' % self.config.model_name,
             get_loss=True)
-      print 
-      print 'According to best acc'
-      print '\nTest loss : {} --- test acc: {}'.format(test_loss, test_acc)
+      print() 
+      print('According to best acc')
+      print('\nTest loss : {} --- test acc: {}'.format(test_loss, test_acc))
 
       _, test_loss, test_acc = self.predict(self.test_data,
             SAVE_DIR + '%s.loss' % self.config.model_name,
             get_loss=True)
-      print 
-      print 'According to best loss'
-      print '\nTest loss : {} --- test acc: {}'.format(test_loss, test_acc)
+      print()
+      print('According to best loss')
+      print('\nTest loss : {} --- test acc: {}'.format(test_loss, test_acc))
 
 
     return {
@@ -418,7 +418,7 @@ if __name__ == '__main__':
 
   pickle_file = os.path.join(data_path, 'generated_trees/{}.pkl'.format(name))
   if os.path.isfile(pickle_file):
-    f = open(pickle_file,'r')
+    f = open(pickle_file,'rb')
     data = pickle.load(f)
   else:
     data = treeDS.load_shrinked_trees(config.trees_path, config.data_path)
@@ -440,5 +440,5 @@ if __name__ == '__main__':
   start_time = time.time()
   stats = model.train(verbose=True)
   end_time = time.time()
-  print 'Done'
-  print 'Time for training ', config.model_name, ' is ', ((end_time - start_time) / 60), 'mins'   
+  print('Done')
+  print('Time for training ', config.model_name, ' is ', ((end_time - start_time) / 60), 'mins')   

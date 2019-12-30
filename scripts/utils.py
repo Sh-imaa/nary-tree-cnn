@@ -23,7 +23,7 @@ class Vocab(object):
         for word in words:
             self.add_word(word)
         self.total_words = float(sum(self.word_freq.values()))
-        print '{} total words with {} uniques'.format(self.total_words, len(self.word_freq))
+        print('{} total words with {} uniques'.format(self.total_words, len(self.word_freq)))
 
     def encode(self, word):
         if word not in self.word_to_index:
@@ -44,7 +44,7 @@ class Vocab_pre_trained(object):
         df = df.append(unk_word)
         self.indeces = df.index
         self.pre_trained_embeddings = np.array(df)
-        print self.pre_trained_embeddings.shape
+        print(self.pre_trained_embeddings.shape)
 
     def encode(self, word):
         try:
@@ -64,8 +64,6 @@ class Vocab_pre_trained_big(object):
             self.w2idx = pickle.load(f)
 
     def encode(self, word):
-        if self.arabic:
-            word = word.decode('utf8')
         try:
             index = self.w2idx[word]
         except:

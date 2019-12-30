@@ -169,7 +169,7 @@ def pad(node):
         pad(n)
 
 def load_shrinked_trees(trees_path, data_path):
-    print 'loading trees ....'
+    print('loading trees ....')
     df = pd.read_csv(data_path)
     trees = []
     for folder in os.listdir(trees_path):
@@ -180,12 +180,14 @@ def load_shrinked_trees(trees_path, data_path):
             with open(tree_path) as f:
                 lines = f.readlines()
                 tree_list = get_sentences(lines)
+                # fix nan
+                df.loc[(df.polarity != 1), 'polarity'] = [0] * len(df[df.polarity != 1])
                 t = Tree(tree_list, df[df.id == int(folder)].polarity.values[0])
                 shrink(t.root, None)
                 generate_levels(t.root)
                 trees.append(t)
 
-    print 'trees loaded'
+    print('trees loaded')
     return trees
 
 def get_height(node, level=0):
