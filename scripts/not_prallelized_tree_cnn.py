@@ -220,6 +220,7 @@ class TreeCNN():
   def run_epoch(self, new_model=False, verbose=True):
     loss_history = []
     # training
+    t_total = 0
     random.shuffle(self.train_data)
     with tf.Session() as sess:
       if new_model:
@@ -228,6 +229,7 @@ class TreeCNN():
         saver = tf.train.Saver()
         saver.restore(sess, SAVE_DIR + '%s.temp' % self.config.model_name)
       for step, tree in enumerate(self.train_data):
+        t1_ = time.time()
         feed_dict = self.build_feed_dict(tree.root, tree.label)
         loss_value, _ = sess.run([self.full_loss, self.train_op],
                                  feed_dict=feed_dict)
@@ -236,6 +238,9 @@ class TreeCNN():
           sys.stdout.write('\r{} / {} :    loss = {}'.format(step, len(
               self.train_data), np.mean(loss_history)))
           sys.stdout.flush()
+        print('\ntime :')
+        t_total += (time.time() - t1_)
+        print(t_total)
       saver = tf.train.Saver()
       if not os.path.exists(SAVE_DIR):
         os.makedirs(SAVE_DIR)
