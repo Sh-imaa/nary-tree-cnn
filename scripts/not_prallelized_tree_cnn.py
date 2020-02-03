@@ -320,8 +320,8 @@ if __name__ == '__main__':
   config = Config()
 
   name = args.dataset
-  config.batch_size = args.batch
-  config.max_epochs = args.epoch
+  config.batch_size = int(args.batch)
+  config.max_epochs = int(args.epoch)
   data_path = args.data_path
   
   config.data_path = os.path.join(data_path, '{}-balanced-not-linked.csv'.format(name))  
