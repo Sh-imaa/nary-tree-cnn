@@ -384,7 +384,7 @@ if __name__ == '__main__':
   parser.add_argument('-b', "--batch", default=32, required=False)
   parser.add_argument('-e', "--epoch", default=2, required=False)
   parser.add_argument('-p', "--data_path", default='../data', required=False)
-  parser.add_argument('-k', "--bucketing", default=True, required=False)
+  parser.add_argument('-k', "--bucketing", default='true', required=False)
   args = parser.parse_args()
 
   config = Config()
@@ -415,7 +415,7 @@ if __name__ == '__main__':
   dev_data = data[train_perc:]
   test_data = None
 
-  if args.bucketing:
+  if args.bucketing == 'true':
     train_lens = [(len(t.get_words()), t) for t in train_data]
     train_lens.sort(key=lambda x:x[0])
     train_data = [t for i, t in train_lens]
