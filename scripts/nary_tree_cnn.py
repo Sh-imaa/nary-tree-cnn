@@ -274,7 +274,9 @@ class TreeCNN():
       m = len(self.train_data)
       num_batches = int(m / self.config.batch_size) + 1
       last_loss = float('inf')
+      total_time = 0
       for batch in range(num_batches):
+        t1_ = time.time()
         feed_dict = batches[batch]
         loss_value, acc, _ = sess.run(
           [self.full_loss, self.root_acc, self.train_op],
@@ -282,6 +284,9 @@ class TreeCNN():
         if verbose:
           sys.stdout.write('\r{} / {} :    loss = {} and acc = {}'.format(batch, num_batches, loss_value, acc))
           sys.stdout.flush()
+        print('\ntime :')
+        total_time += (time.time() - t1_)
+        print(total_time)
       saver = tf.train.Saver()
       if not os.path.exists(SAVE_DIR):
         os.makedirs(SAVE_DIR)
