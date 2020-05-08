@@ -386,7 +386,7 @@ if __name__ == '__main__':
   parser.add_argument('-e', "--epoch", default=2, required=False)
   parser.add_argument('-p', "--data_path", default='../data', required=False)
   parser.add_argument('-k', "--bucketing", default='true', required=False)
-  parser.add_argument('-p', "--save_dir", default='../weights', required=False)
+  parser.add_argument('-s', "--save_dir", default='../weights', required=False)
   args = parser.parse_args()
 
   config = Config()
