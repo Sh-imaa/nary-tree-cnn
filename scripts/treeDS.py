@@ -195,14 +195,33 @@ def get_height(node, level=0):
         return level
     return max([get_height(n, level + 1) for n in node.c])
 
+def print_node(node, prefix=''):
+    print(prefix + str(node.word))
+    prefix = prefix + '  '
+    for c in node.c:
+        print_node(c, prefix)
+    
+
 def edit_tree(tree, edits=1):
     h = get_height(tree.root)
+    if h <= 2:
+        return 0 
+    edit_count = [0]
+    edited_levels = []
     # pick any valid level to edit
-    level = random.randrange(2, h)
-    traverse(tree.root, edit_level, [level, 1, [0]])
+    while  (edit_count[0] < edits) and (len(edited_levels) < (h - 2)):
+        level = random.randrange(2, h)
+        if level in edited_levels:
+            continue
+        edited_levels.append(level)
+
+        traverse(tree.root, edit_level, [level, edits, edit_count])
+
+    generate_levels(tree.root)
+    return edit_count[0]
 
 def edit_level(node, level, max_edits=1, edits_c=[0]):
-    if (edits_c[0] != max_edits) and (node.level == level):
+    if (edits_c[0] < max_edits) and (node.level == level):
         if edit_node(node): edits_c[0] += 1
 
 def edit_node(node):
@@ -210,6 +229,7 @@ def edit_node(node):
         return node
     all_c = []
     old_order = []
+
     for c in node.c:
         if c.isLeaf:
             all_c.append(c)
@@ -218,10 +238,13 @@ def edit_node(node):
             all_c += c.c
             old_order.append(len(c.c))
     n = len(all_c)
+    # print('old order', old_order)
+    # print('old nodes', node.c)
     new_c = []
     new_order = []
     while (n > 2):
         m = random.randrange(1, n, 1)
+        # print('m: ', m)
         new_order.append(m)
         if m == 1:
             new_c.append(all_c.pop())
@@ -236,6 +259,9 @@ def edit_node(node):
         new_c += all_c
         new_order.append(len(all_c))
     node.c = new_c
+
+    # print('new order', new_order)
+    # print('new c ', node.c)
     return new_order != old_order
 
 

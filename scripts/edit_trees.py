@@ -2,7 +2,7 @@ import os, sys, shutil, time, itertools
 import math, random
 from collections import OrderedDict, defaultdict
 
-import pickle
+import pickle, copy
 import numpy as np
 import argparse
 
@@ -70,7 +70,7 @@ if __name__ == '__main__':
 
   parser = argparse.ArgumentParser()
   parser.add_argument('-d', "--dataset", default="ATT", required=False)
-  parser.add_argument('-b', "--batch", default=32, required=False)
+  parser.add_argument('-b', "--batch", default=1, required=False)
   parser.add_argument('-p', "--data_path", default='../data', required=False)
   parser.add_argument('-m', "--model_path", default=None, required=False)
   args = parser.parse_args()
@@ -101,16 +101,17 @@ if __name__ == '__main__':
   train_data = data[:train_perc]
   dev_data = data[train_perc:]
   test_data = None
-
   model = TreeCNN(config, train_data, dev_data, test_data)
+  dev_data_copy = copy.deepcopy(dev_data)
   if args.model_path is not None:
     model_path = args.model_path
   else: model_path = SAVE_DIR + '%s.temp' % model.config.model_name
   _, loss, acc = model.predict(dev_data, model_path, get_loss=True)
-  print('before editing', acc)
+  print('before editing', acc, loss)
 
-  for t in dev_data:
-    treeDS.edit_tree(t)
+  edit_count = 0
+  for i, t in enumerate(dev_data_copy):
+    treeDS.edit_tree(t, edits=20)
 
-  _, loss, acc = model.predict(dev_data, model_path, get_loss=True)
-  print('after editing', acc)
+  _, loss1, acc1 = model.predict(dev_data_copy, model_path, get_loss=True)
+  print('after editing', acc1, loss1)

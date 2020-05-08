@@ -250,7 +250,6 @@ class TreeCNN():
         feed_dict = self.feed_dict_train
       elif dataset == 'dev':
         feed_dict = self.feed_dict_dev
-
       if get_loss:
         root_prediction, root_loss, root_acc = sess.run(
               [self.root_prediction, self.full_loss, self.root_acc],
@@ -284,9 +283,6 @@ class TreeCNN():
         if verbose:
           sys.stdout.write('\r{} / {} :    loss = {} and acc = {}'.format(batch, num_batches, loss_value, acc))
           sys.stdout.flush()
-        print('\ntime :')
-        total_time += (time.time() - t1_)
-        print(total_time)
       saver = tf.train.Saver()
       if not os.path.exists(SAVE_DIR):
         os.makedirs(SAVE_DIR)
