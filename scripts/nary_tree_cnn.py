@@ -386,6 +386,7 @@ if __name__ == '__main__':
   parser.add_argument('-e', "--epoch", default=2, required=False)
   parser.add_argument('-p', "--data_path", default='../data', required=False)
   parser.add_argument('-k', "--bucketing", default='true', required=False)
+  parser.add_argument('-p', "--save_dir", default='../weights', required=False)
   args = parser.parse_args()
 
   config = Config()
@@ -394,6 +395,9 @@ if __name__ == '__main__':
   config.batch_size = int(args.batch)
   config.max_epochs = int(args.epoch)
   data_path = args.data_path
+  save_dir = args.save_dir
+  #TODO: change this
+  SAVE_DIR = save_dir
   
   config.data_path = os.path.join(data_path, '{}-balanced-not-linked.csv'.format(name))  
   config.trees_path = os.path.join(data_path, 'trees/{}'.format(name))
