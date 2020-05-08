@@ -73,6 +73,7 @@ if __name__ == '__main__':
   parser.add_argument('-b', "--batch", default=1, required=False)
   parser.add_argument('-p', "--data_path", default='../data', required=False)
   parser.add_argument('-m', "--model_path", default=None, required=False)
+  parser.add_argument('-e', "--edits", default=1, required=False)
   args = parser.parse_args()
 
   config = Config()
@@ -80,6 +81,7 @@ if __name__ == '__main__':
   name = args.dataset
   config.batch_size = int(args.batch)
   data_path = args.data_path
+  edits = args.edits
   
   config.data_path = os.path.join(data_path, '{}-balanced-not-linked.csv'.format(name))  
   config.trees_path = os.path.join(data_path, 'trees/{}'.format(name))
@@ -111,7 +113,7 @@ if __name__ == '__main__':
 
   edit_count = 0
   for i, t in enumerate(dev_data_copy):
-    treeDS.edit_tree(t, edits=20)
+    treeDS.edit_tree(t, edits=edits)
 
   _, loss1, acc1 = model.predict(dev_data_copy, model_path, get_loss=True)
   print('after editing', acc1, loss1)
