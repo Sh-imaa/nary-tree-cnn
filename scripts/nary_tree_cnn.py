@@ -409,7 +409,7 @@ if __name__ == '__main__':
   pickle_file = os.path.join(data_path, 'generated_trees/{}.pkl'.format(name))
   if os.path.isfile(pickle_file):
     f = open(pickle_file,'rb')
-    data = pickle.load(f)
+    data = pickle.load(f, encoding='utf-8')
   else:
     data = treeDS.load_shrinked_trees(config.trees_path, config.data_path)
     f = open(pickle_file, "wb")
