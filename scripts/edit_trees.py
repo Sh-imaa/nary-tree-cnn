@@ -81,7 +81,7 @@ if __name__ == '__main__':
   name = args.dataset
   config.batch_size = int(args.batch)
   data_path = args.data_path
-  edits = args.edits
+  edits = int(args.edits)
   
   config.data_path = os.path.join(data_path, '{}-balanced-not-linked.csv'.format(name))  
   config.trees_path = os.path.join(data_path, 'trees/{}'.format(name))
