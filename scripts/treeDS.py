@@ -190,6 +190,16 @@ def load_shrinked_trees(trees_path, data_path):
     print('trees loaded')
     return trees
 
+def load_tree(tree_path, label=None):
+    with open(tree_path) as f:
+        lines = f.readlines()
+        tree_list = get_sentences(lines)
+        t = Tree(tree_list, label)
+        shrink(t.root, None)
+        generate_levels(t.root)
+
+        return t
+
 def get_height(node, level=0):
     if node.isLeaf:
         return level
