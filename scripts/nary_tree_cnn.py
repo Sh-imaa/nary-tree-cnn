@@ -174,6 +174,7 @@ class TreeCNN():
     # add projection layer
     self.logits = tf.matmul(self.roots, U) + bs
     self.logits = tf.nn.dropout(self.logits, self.dropout2_placeholder)
+    self.scores = tf.nn.softmax(self.logits)
     self.root_prediction = tf.squeeze(tf.argmax(self.logits, 1))
         
     # add loss layer
@@ -261,6 +262,20 @@ class TreeCNN():
           feed_dict=feed_dict)
         return root_prediction, root_acc
 
+  def predict_example(self, tree_path, weights_path):
+    t = treeDS.load_tree(tree_path)
+
+    with tf.Session() as sess:
+      saver = tf.train.Saver()
+      saver.restore(sess, weights_path)
+      batch_generator = generate_batch([t], 1)
+      feed_dict = self.build_feed_dict(next(batch_generator), train=False)
+      root_prediction, logits = sess.run([self.root_prediction, self.scores],
+                                          feed_dict=feed_dict)
+      return root_prediction, logits
+
+
+
   def run_epoch(self, batches, new_model=False, verbose=True):
     random.shuffle(batches)
     with tf.Session() as sess:
@@ -281,7 +296,8 @@ class TreeCNN():
           [self.full_loss, self.root_acc, self.train_op],
           feed_dict=feed_dict)
         if verbose:
-          sys.stdout.write('\r{} / {} :    loss = {} and acc = {}'.format(batch, num_batches, loss_value, acc))
+          sys.stdout.write('\r{} / {} :    loss = {} and acc = {}'.format(
+            batch, num_batches, loss_value, acc))
           sys.stdout.flush()
       saver = tf.train.Saver()
       if not os.path.exists(SAVE_DIR):
