@@ -3,6 +3,7 @@
 Nary-Tree CNN for Sentiment Analysis
 
 1- Generate trees using [The stanfordcorenlp natural language processing toolkit] (https://nlp.stanford.edu/pubs/StanfordCoreNlp2014.pdf)
+
 2- Use `nary_tree_cnn.py` for training.
 
 Note: Any dataset can be used and transformed to trees. Analysis is done on some of the public datasets like [LABR: A Large-SCale Arabic Book Reviews Dataset
