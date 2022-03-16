@@ -12,24 +12,24 @@ def get_sentences(lines):
     tree = []
     sentence_tree = []
     for line in lines:
-        if (line[:8] == 'Sentence' )and new_sentence:
-            s = ' '.join(sentence_tree)
-            s = re.sub('\s+', ' ', s)
-            s = re.sub('\(', '( ', s)
-            s = re.sub('\)', ' )', s)
-            tree.append(re.sub('\s+', ' ', s))
+        if (line[:8] == "Sentence") and new_sentence:
+            s = " ".join(sentence_tree)
+            s = re.sub("\s+", " ", s)
+            s = re.sub("\(", "( ", s)
+            s = re.sub("\)", " )", s)
+            tree.append(re.sub("\s+", " ", s))
             sentence_tree = []
             new_sentence = False
         if new_sentence:
             sentence_tree.append(line)
-        if line == 'Constituency parse: \n':
+        if line == "Constituency parse: \n":
             new_sentence = True
-            
-    s = ' '.join(sentence_tree)
-    s = re.sub('\s+', ' ', s)
-    s = re.sub('\(', '( ', s)
-    s = re.sub('\)', ' )', s)
-    tree.append(re.sub('\s+', ' ', s))
+
+    s = " ".join(sentence_tree)
+    s = re.sub("\s+", " ", s)
+    s = re.sub("\(", "( ", s)
+    s = re.sub("\)", " )", s)
+    tree.append(re.sub("\s+", " ", s))
 
     return tree
 
@@ -48,9 +48,9 @@ class Node:
 class Tree:
     def __init__(self, treeStrings, label):
         self.label = label
-        self.open = '('
-        self.close = ')'
-        self.root = Node('Main ROOT')
+        self.open = "("
+        self.close = ")"
+        self.root = Node("Main ROOT")
         self.root.isRoot = True
         for treeString in treeStrings:
             self.tokens = treeString.strip().split()
@@ -58,10 +58,9 @@ class Tree:
 
     def get_words(self):
         nodes_list = []
-        traverse(self.root,  lambda node, args: args.append(node), [nodes_list])
+        traverse(self.root, lambda node, args: args.append(node), [nodes_list])
         return [node.word for node in nodes_list if node.isLeaf]
 
-        
     def parse(self):
         parents = []
         count = 0
@@ -71,11 +70,11 @@ class Tree:
         start = True
         for token in self.tokens:
             assert count >= 0, "Malformed tree"
-            
-            if token == '(':
+
+            if token == "(":
                 if info_position == 1:
                     node = Node(node_info[0])
-                    
+
                     if start:
                         self.root.c.append(node)
                         start = False
@@ -86,8 +85,8 @@ class Tree:
                 info_position = 0
                 count += 1
                 last_close = False
-            
-            elif token == ')':
+
+            elif token == ")":
                 if info_position == 2:
                     node = Node(node_info[0], node_info[1])
                     node.isLeaf = True
@@ -97,19 +96,21 @@ class Tree:
 
                 count -= 1
                 last_close = True
-                info_position = 0 
-            
+                info_position = 0
+
             else:
                 node_info[info_position] = token
                 info_position += 1
                 last_close = False
-                
+
         assert count == 0, "Malformed tree"
-                
+
+
 def traverse(node, nodeFn=None, args=None):
     for child in node.c:
         traverse(child, nodeFn, args)
     nodeFn(node, *args)
+
 
 def shrink(node, parent, j=0):
     if not node.c:
@@ -126,20 +127,23 @@ def shrink(node, parent, j=0):
     for i, n in enumerate(node.c):
         shrink(n, node, i)
 
+
 def get_nodes_per_level(node, node_by_level):
     node_by_level[node.level].append(node)
     for n in node.c:
         get_nodes_per_level(n, node_by_level)
+
 
 def get_max_nodes(node, max_nodes):
     node.max_nodes = max_nodes[node.level]
     for n in node.c:
         get_max_nodes(n, max_nodes)
 
+
 def get_first_tree(tree):
     short_tree = copy.deepcopy(tree)
     try:
-        if short_tree.root.c[0].POS == 'S':
+        if short_tree.root.c[0].POS == "S":
             short_tree.root = short_tree.root.c[0]
             short_tree.root.isRoot = True
         return short_tree
@@ -157,38 +161,41 @@ def generate_levels(node):
     node.level = max(levels) + 1
     return node.level
 
+
 def pad(node):
     if node.isLeaf:
         return
     pad_length = node.max_nodes - len(node.c)
     if pad_length > 0:
-        n = Node('extra', word='<pad>')
+        n = Node("extra", word="<pad>")
         n.isLeaf = True
-        node.c.extend([n]*pad_length)
+        node.c.extend([n] * pad_length)
     for n in node.c:
         pad(n)
 
+
 def load_shrinked_trees(trees_path, data_path):
-    print('loading trees ....')
+    print("loading trees ....")
     df = pd.read_csv(data_path)
     trees = []
     for folder in os.listdir(trees_path):
         tree_folder = os.path.join(trees_path, folder)
-        if  os.listdir(tree_folder):
+        if os.listdir(tree_folder):
             tree_path = os.path.join(tree_folder, os.listdir(tree_folder)[0])
 
             with open(tree_path) as f:
                 lines = f.readlines()
                 tree_list = get_sentences(lines)
                 # fix nan
-                df.loc[(df.polarity != 1), 'polarity'] = [0] * len(df[df.polarity != 1])
+                df.loc[(df.polarity != 1), "polarity"] = [0] * len(df[df.polarity != 1])
                 t = Tree(tree_list, df[df.id == int(folder)].polarity.values[0])
                 shrink(t.root, None)
                 generate_levels(t.root)
                 trees.append(t)
 
-    print('trees loaded')
+    print("trees loaded")
     return trees
+
 
 def load_tree(tree_path, label=0):
     with open(tree_path) as f:
@@ -200,26 +207,28 @@ def load_tree(tree_path, label=0):
 
         return t
 
+
 def get_height(node, level=0):
     if node.isLeaf:
         return level
     return max([get_height(n, level + 1) for n in node.c])
 
-def print_node(node, prefix=''):
+
+def print_node(node, prefix=""):
     print(prefix + str(node.word))
-    prefix = prefix + '  '
+    prefix = prefix + "  "
     for c in node.c:
         print_node(c, prefix)
-    
+
 
 def edit_tree(tree, edits=1):
     h = get_height(tree.root)
     if h <= 2:
-        return 0 
+        return 0
     edit_count = [0]
     edited_levels = []
     # pick any valid level to edit
-    while  (edit_count[0] < edits) and (len(edited_levels) < (h - 2)):
+    while (edit_count[0] < edits) and (len(edited_levels) < (h - 2)):
         level = random.randrange(2, h)
         if level in edited_levels:
             continue
@@ -230,9 +239,12 @@ def edit_tree(tree, edits=1):
     generate_levels(tree.root)
     return edit_count[0]
 
+
 def edit_level(node, level, max_edits=1, edits_c=[0]):
     if (edits_c[0] < max_edits) and (node.level == level):
-        if edit_node(node): edits_c[0] += 1
+        if edit_node(node):
+            edits_c[0] += 1
+
 
 def edit_node(node):
     if node.level < 2:
@@ -252,14 +264,14 @@ def edit_node(node):
     # print('old nodes', node.c)
     new_c = []
     new_order = []
-    while (n > 2):
+    while n > 2:
         m = random.randrange(1, n, 1)
         # print('m: ', m)
         new_order.append(m)
         if m == 1:
             new_c.append(all_c.pop())
         else:
-            new_n = Node('edited')
+            new_n = Node("edited")
             new_n.c = all_c[:m]
             del all_c[:m]
             new_c.append(new_n)
@@ -273,7 +285,3 @@ def edit_node(node):
     # print('new order', new_order)
     # print('new c ', node.c)
     return new_order != old_order
-
-
-
-
