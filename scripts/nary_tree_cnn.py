@@ -8,6 +8,7 @@ import argparse
 
 import tensorflow as tf
 from tensorflow.python.ops import variable_scope, init_ops
+import wandb
 
 import utils
 import treeDS
@@ -15,6 +16,8 @@ import treeDS
 MODEL_STR = 'tree_cnn_lr=%f_l2=%f_dr1=%f_dr2=%f_batch_size=%d.weights'
 SAVE_DIR = '../weights/'
 LOG_DIR = './logs/'
+
+wandb.init(project="tree_cnn", entity="shimaa")
 
 def generate_batch(data, batch_size):
     i1 = 0
@@ -190,6 +193,13 @@ class TreeCNN():
     self.full_loss = regularization_loss + self.loss
     self.root_acc = tf.reduce_mean(tf.cast(tf.equal(
       self.root_prediction, self.labels_placeholder), tf.float32))
+    tp = tf.math.logical_and(tf.equal(self.root_prediction, 1),
+      tf.equal(self.root_prediction, self.labels_placeholder))
+    tp = tf.reduce_sum(tf.cast(tp, tf.float32))
+    fp = tf.math.logical_and(tf.equal(self.root_prediction, 1),
+      tf.not_equal(self.root_prediction, self.labels_placeholder))
+    fp = tf.reduce_sum(tf.cast(fp, tf.float32))  
+    self.root_percision = tp / (tp + fp)
 
     # add training op
     if self.config.diff_lr:
@@ -252,15 +262,15 @@ class TreeCNN():
       elif dataset == 'dev':
         feed_dict = self.feed_dict_dev
       if get_loss:
-        root_prediction, root_loss, root_acc = sess.run(
-              [self.root_prediction, self.full_loss, self.root_acc],
+        root_prediction, root_loss, root_acc, root_perc = sess.run(
+              [self.root_prediction, self.full_loss, self.root_acc, self.root_percision],
               feed_dict=feed_dict)
-        return root_prediction, root_loss, root_acc
+        return root_prediction, root_loss, root_acc, root_perc
       else:
-        root_prediction = sess.run(
-          [self.root_prediction, self.root_acc],
+        root_prediction,  root_acc, root_perc = sess.run(
+          [self.root_prediction, self.root_acc, self.root_percision],
           feed_dict=feed_dict)
-        return root_prediction, root_acc
+        return root_prediction, root_acc, root_perc
 
   def predict_example(self, tree_path, weights_path):
     t = treeDS.load_tree(tree_path)
@@ -313,6 +323,8 @@ class TreeCNN():
 
     batch_generator = generate_batch(self.dev_data, len(self.dev_data))
     self.feed_dict_dev = self.build_feed_dict(next(batch_generator), train=False)
+    batch_generator_train = generate_batch(self.train_data, len(self.train_data))
+    self.feed_dict_train = self.build_feed_dict(next(batch_generator))
 
     batches = []
     batch_generator = generate_batch(self.train_data, self.config.batch_size)
@@ -327,10 +339,15 @@ class TreeCNN():
       else:
         self.run_epoch(batches=batches)
 
-      _, dev_loss, dev_acc = self.predict(self.dev_data,
+      _, dev_loss, dev_acc, dev_prec = self.predict(self.dev_data,
         SAVE_DIR + '%s.temp' % self.config.model_name,
         get_loss=True, dataset='dev')
+      _, train_loss, train_acc, train_prec = self.predict(self.train_data,
+        SAVE_DIR + '%s.temp' % self.config.model_name,
+        get_loss=True, dataset='train')
       print('\nDev loss : {} --- dev acc: {}'.format(dev_loss, dev_acc))
+      wandb.log({"epoch":epoch+1, "dev_loss": dev_loss, "dev_acc": dev_acc, "dev_prec": dev_prec,
+       "train_acc": train_acc, "train_loss": train_loss, "train_prec": train_prec})
 
       if dev_acc > best_dev_acc:
         self.copy_weight_files(self.config.model_name, self.config.model_name + '.temp')
