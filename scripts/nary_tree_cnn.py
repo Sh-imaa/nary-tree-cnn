@@ -386,7 +386,7 @@ class TreeCNN:
         batch_generator = generate_batch(self.dev_data, len(self.dev_data))
         self.feed_dict_dev = self.build_feed_dict(next(batch_generator), train=False)
         batch_generator_train = generate_batch(self.train_data, len(self.train_data))
-        self.feed_dict_train = self.build_feed_dict(next(batch_generator))
+        self.feed_dict_train = self.build_feed_dict(next(batch_generator), train=False)
 
         batches = []
         batch_generator = generate_batch(self.train_data, self.config.batch_size)
