@@ -13,6 +13,7 @@ import wandb
 import utils
 import treeDS
 from nary_tree_cnn import TreeCNN, Config
+from trainer import Trainer
 
 MODEL_STR = "tree_cnn_lr=%f_l2=%f_dr1=%f_dr2=%f_batch_size=%d.weights"
 SAVE_DIR = "../weights/"
@@ -73,9 +74,10 @@ if __name__ == "__main__":
         train_data = [t for i, t in train_lens]
         del train_lens
     model = TreeCNN(config, train_data, dev_data, test_data)
+    trainer = Trainer(model)
 
     start_time = time.time()
-    stats = model.train(verbose=True)
+    stats = trainer.train(verbose=True)
     end_time = time.time()
     print("Done")
     print(
