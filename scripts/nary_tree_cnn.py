@@ -233,12 +233,27 @@ class TreeCNN:
             tf.equal(self.root_prediction, self.labels_placeholder),
         )
         tp = tf.reduce_sum(tf.cast(tp, tf.float32))
+        tn = tf.math.logical_and(
+            tf.equal(self.root_prediction, 0),
+            tf.equal(self.root_prediction, self.labels_placeholder),
+        )
+        tn = tf.reduce_sum(tf.cast(tn, tf.float32))
         fp = tf.math.logical_and(
             tf.equal(self.root_prediction, 1),
             tf.not_equal(self.root_prediction, self.labels_placeholder),
         )
         fp = tf.reduce_sum(tf.cast(fp, tf.float32))
-        self.root_percision = tp / (tp + fp)
+        fn = tf.math.logical_and(
+            tf.equal(self.root_prediction, 0),
+            tf.not_equal(self.root_prediction, self.labels_placeholder),
+        )
+        fn = tf.reduce_sum(tf.cast(fn, tf.float32))
+        self.root_percision = tp / (tp + fp) # Positive Predictive Value and  
+        self.root_recall = tp / (tp + fn) # Senstivity and True Positive Rate
+        self.root_specifity = tn / (tn + fp)
+        self.neg_pred_val = tn / (tn + fn)
+        self.root_f1_pos_minority = tp / (tp +  0.5 * (fp + fn)))
+        self.root_f1_neg_minority = tn / (tn +  0.5 * (fn + fp)))
 
         # add training op
         if self.config.diff_lr:
