@@ -20,8 +20,47 @@ LOG_DIR = "./logs/"
 
 
 class Trainer:
-    def __init__(self, model):
+    def __init__(self, model, config, train_data, dev_data, test_data=None):
         self.model = model
+        self.config = config
+        self.train_data = train_data
+        self.dev_data = dev_data
+        self.test_data = test_data
+
+        print(
+            "Training on {} examples, validating on {} examples.".format(
+                len(self.train_data), len(self.dev_data)
+            )
+        )
+        self.epoch_size = len(self.train_data)
+
+        self.define_train_op()
+
+    def define_train_op(self):
+        if self.config.diff_lr:
+            global_step = variable_scope.get_variable(
+                "global_step",
+                [],
+                trainable=False,
+                dtype=tf.int64,
+                initializer=init_ops.constant_initializer(0, dtype=tf.int64),
+            )
+            train_op1 = tf.train.AdagradOptimizer(self.config.lr_embd).minimize(
+                self.model.full_loss, var_list=[self.model.embeddings]
+            )
+            train_op2 = tf.train.AdagradOptimizer(self.config.lr).minimize(
+                self.model.full_loss, var_list=self.model.var_list
+            )
+            self.train_op = tf.group(train_op1, train_op2)
+
+        elif self.config.optimizer == "Adam":
+            self.train_op = tf.train.AdamOptimizer(self.config.lr).minimize(
+                self.model.full_loss
+            )
+        else:
+            self.train_op = tf.train.GradientDescentOptimizer(self.config.lr).minimize(
+                self.model.full_loss
+            )
 
     def build_feed_dict(self, trees, train=True, no_label=False):
         nodes_list = []
@@ -34,8 +73,8 @@ class Trainer:
         for i in range(len(nodes_list)):
             node_to_index[nodes_list[i]] = i
         if train:
-            dropout1 = self.model.config.dropout1
-            dropout2 = self.model.config.dropout2
+            dropout1 = self.config.dropout1
+            dropout2 = self.config.dropout2
         else:
             dropout1 = 1.0
             dropout2 = 1.0
@@ -77,9 +116,9 @@ class Trainer:
                 batch_generator = generate_batch(trees, len(trees))
                 feed_dict = self.build_feed_dict(next(batch_generator), train=False)
             elif dataset == "train":
-                feed_dict = self.model.feed_dict_train
+                feed_dict = self.feed_dict_train
             elif dataset == "val":
-                feed_dict = self.model.feed_dict_dev
+                feed_dict = self.feed_dict_dev
             if get_pred_only:
                 root_prediction = sess.run(
                     [self.model.root_prediction],
@@ -118,17 +157,17 @@ class Trainer:
                 sess.run(tf.global_variables_initializer())
             else:
                 saver = tf.train.Saver()
-                saver.restore(sess, SAVE_DIR + "%s.temp" % self.model.config.model_name)
+                saver.restore(sess, SAVE_DIR + "%s.temp" % self.config.model_name)
 
-            m = len(self.model.train_data)
-            num_batches = int(m / self.model.config.batch_size) + 1
+            m = len(self.train_data)
+            num_batches = int(m / self.config.batch_size) + 1
             last_loss = float("inf")
             total_time = 0
             for batch in range(num_batches):
                 t1_ = time.time()
                 feed_dict = batches[batch]
                 loss_value, acc, _ = sess.run(
-                    [self.model.full_loss, self.model.root_acc, self.model.train_op],
+                    [self.model.full_loss, self.model.root_acc, self.train_op],
                     feed_dict=feed_dict,
                 )
                 if verbose:
@@ -141,7 +180,7 @@ class Trainer:
             saver = tf.train.Saver()
             if not os.path.exists(SAVE_DIR):
                 os.makedirs(SAVE_DIR)
-            saver.save(sess, SAVE_DIR + "%s.temp" % self.model.config.model_name)
+            saver.save(sess, SAVE_DIR + "%s.temp" % self.config.model_name)
 
     def train(self, verbose=True):
         stopped = -1
@@ -149,26 +188,20 @@ class Trainer:
         best_dev_loss = float("inf")
         best_dev_acc = 0
 
-        batch_generator = generate_batch(self.model.dev_data, len(self.model.dev_data))
-        self.model.feed_dict_dev = self.build_feed_dict(
-            next(batch_generator), train=False
-        )
-        batch_generator_train = generate_batch(
-            self.model.train_data, len(self.model.train_data)
-        )
-        self.model.feed_dict_train = self.build_feed_dict(
+        batch_generator = generate_batch(self.dev_data, len(self.dev_data))
+        self.feed_dict_dev = self.build_feed_dict(next(batch_generator), train=False)
+        batch_generator_train = generate_batch(self.train_data, len(self.train_data))
+        self.feed_dict_train = self.build_feed_dict(
             next(batch_generator_train), train=False
         )
 
         batches = []
-        batch_generator = generate_batch(
-            self.model.train_data, self.model.config.batch_size
-        )
-        num_batches = int(len(self.model.train_data) / self.model.config.batch_size) + 1
+        batch_generator = generate_batch(self.train_data, self.config.batch_size)
+        num_batches = int(len(self.train_data) / self.config.batch_size) + 1
         for batch in range(num_batches):
             batches.append(self.build_feed_dict(next(batch_generator)))
 
-        for epoch in range(self.model.config.max_epochs):
+        for epoch in range(self.config.max_epochs):
             print("\nepoch %d" % epoch)
             if epoch == 0:
                 self.run_epoch(batches=batches, new_model=True)
@@ -176,12 +209,12 @@ class Trainer:
                 self.run_epoch(batches=batches)
 
             _, dev_loss, dev_acc, dev_prec = self.predict(
-                SAVE_DIR + "%s.temp" % self.model.config.model_name,
+                SAVE_DIR + "%s.temp" % self.config.model_name,
                 get_pred_only=False,
                 dataset="val",
             )
             _, train_loss, train_acc, train_prec = self.predict(
-                SAVE_DIR + "%s.temp" % self.model.config.model_name,
+                SAVE_DIR + "%s.temp" % self.config.model_name,
                 get_pred_only=False,
                 dataset="train",
             )
@@ -201,8 +234,8 @@ class Trainer:
             if dev_acc > best_dev_acc:
                 copy_weight_files(
                     SAVE_DIR,
-                    self.model.config.model_name,
-                    self.model.config.model_name + ".temp",
+                    self.config.model_name,
+                    self.config.model_name + ".temp",
                 )
                 best_dev_acc = dev_acc
                 best_dev_epoch = epoch
@@ -210,13 +243,13 @@ class Trainer:
             if (dev_acc == best_dev_acc) and (dev_loss < best_dev_loss):
                 copy_weight_files(
                     SAVE_DIR,
-                    self.model.config.model_name,
-                    self.model.config.model_name + ".temp",
+                    self.config.model_name,
+                    self.config.model_name + ".temp",
                 )
                 copy_weight_files(
                     SAVE_DIR,
-                    self.model.config.model_name + ".loss",
-                    self.model.config.model_name + ".temp",
+                    self.config.model_name + ".loss",
+                    self.config.model_name + ".temp",
                 )
                 best_dev_loss = dev_loss
                 best_dev_epoch = epoch
@@ -224,12 +257,12 @@ class Trainer:
             if dev_loss < best_dev_loss:
                 copy_weight_files(
                     SAVE_DIR,
-                    self.model.config.model_name + ".loss",
-                    self.model.config.model_name + ".temp",
+                    self.config.model_name + ".loss",
+                    self.config.model_name + ".temp",
                 )
                 best_dev_loss = dev_loss
 
-            if (epoch - best_dev_epoch) > self.model.config.early_stopping:
+            if (epoch - best_dev_epoch) > self.config.early_stopping:
                 stopped = epoch
                 break
 

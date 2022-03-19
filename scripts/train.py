@@ -73,8 +73,13 @@ if __name__ == "__main__":
         train_lens.sort(key=lambda x: x[0])
         train_data = [t for i, t in train_lens]
         del train_lens
-    model = TreeCNN(config, train_data, dev_data, test_data)
-    trainer = Trainer(model)
+
+    vocab = utils.Vocab_pre_trained_big(
+        config.pre_trained_v_path, config.pre_trained_i_path, arabic=True
+    )
+    config.embed_size = vocab.pre_trained_embeddings.shape[1]
+    model = TreeCNN(config, vocab)
+    trainer = Trainer(model, config, train_data, dev_data, test_data)
 
     start_time = time.time()
     stats = trainer.train(verbose=True)

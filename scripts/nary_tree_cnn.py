@@ -46,25 +46,11 @@ class Config(object):
 
 
 class TreeCNN:
-    def __init__(self, config, train_data, dev_data, test_data=None):
+    def __init__(self, config, vocab):
         self.config = config
-        self.train_data = train_data
-        self.dev_data = dev_data
-        self.test_data = test_data
-
-        print(
-            "Training on {} examples, validating on {} examples.".format(
-                len(self.train_data), len(self.dev_data)
-            )
-        )
+        self.vocab = vocab
 
         self.var_list = []
-        self.epoch_size = len(self.train_data)
-        # Load train data and build vocabulary
-        self.vocab = utils.Vocab_pre_trained_big(
-            self.config.pre_trained_v_path, self.config.pre_trained_i_path, arabic=True
-        )
-        config.embed_size = self.vocab.pre_trained_embeddings.shape[1]
 
         # add input placeholders
         with tf.variable_scope("Input"):
@@ -99,7 +85,7 @@ class TreeCNN:
             # add model variables
 
         with tf.variable_scope("Embeddings"):
-            embeddings = tf.Variable(
+            self.embeddings = tf.Variable(
                 initial_value=self.vocab.pre_trained_embeddings,
                 trainable=self.config.trainable,
                 name="embeddings",
@@ -136,7 +122,7 @@ class TreeCNN:
         )
 
         def embed_words(word_indeces):
-            words = tf.gather_nd(embeddings, tf.reshape(word_indeces, [-1, 1]))
+            words = tf.gather_nd(self.embeddings, tf.reshape(word_indeces, [-1, 1]))
             return tf.nn.dropout(words, self.dropout1_placeholder)
 
         def combine_children(children_tensors, m):
@@ -229,29 +215,3 @@ class TreeCNN:
         self.neg_pred_val = tn / (tn + fn)
         self.root_f1_pos_minority = tp / (tp + 0.5 * (fp + fn))
         self.root_f1_neg_minority = tn / (tn + 0.5 * (fn + fp))
-
-        # add training op
-        if self.config.diff_lr:
-            global_step = variable_scope.get_variable(
-                "global_step",
-                [],
-                trainable=False,
-                dtype=tf.int64,
-                initializer=init_ops.constant_initializer(0, dtype=tf.int64),
-            )
-            train_op1 = tf.train.AdagradOptimizer(self.config.lr_embd).minimize(
-                self.full_loss, var_list=[embeddings]
-            )
-            train_op2 = tf.train.AdagradOptimizer(self.config.lr).minimize(
-                self.full_loss, var_list=self.var_list
-            )
-            self.train_op = tf.group(train_op1, train_op2)
-
-        elif self.config.optimizer == "Adam":
-            self.train_op = tf.train.AdamOptimizer(self.config.lr).minimize(
-                self.full_loss
-            )
-        else:
-            self.train_op = tf.train.GradientDescentOptimizer(self.config.lr).minimize(
-                self.full_loss
-            )
