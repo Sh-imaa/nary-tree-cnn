@@ -88,8 +88,6 @@ class TreeCNN:
             self.config.pre_trained_v_path, self.config.pre_trained_i_path, arabic=True
         )
         config.embed_size = self.vocab.pre_trained_embeddings.shape[1]
-        # train_sents = [t.get_words() for t in self.train_data]
-        # self.vocab.construct(list(itertools.chain.from_iterable(train_sents)))
 
         # add input placeholders
         with tf.variable_scope("Input"):
@@ -248,12 +246,12 @@ class TreeCNN:
             tf.not_equal(self.root_prediction, self.labels_placeholder),
         )
         fn = tf.reduce_sum(tf.cast(fn, tf.float32))
-        self.root_percision = tp / (tp + fp) # Positive Predictive Value and  
-        self.root_recall = tp / (tp + fn) # Senstivity and True Positive Rate
+        self.root_percision = tp / (tp + fp)  # Positive Predictive Value and
+        self.root_recall = tp / (tp + fn)  # Senstivity and True Positive Rate
         self.root_specifity = tn / (tn + fp)
         self.neg_pred_val = tn / (tn + fn)
-        self.root_f1_pos_minority = tp / (tp +  0.5 * (fp + fn)))
-        self.root_f1_neg_minority = tn / (tn +  0.5 * (fn + fp)))
+        self.root_f1_pos_minority = tp / (tp + 0.5 * (fp + fn))
+        self.root_f1_neg_minority = tn / (tn + 0.5 * (fn + fp))
 
         # add training op
         if self.config.diff_lr:
@@ -477,12 +475,7 @@ class TreeCNN:
         print("\n\nstopped at %d\n" % stopped)
         print("best loss: ", best_dev_loss)
         print("best acc: ", best_dev_acc)
-        with open(os.path.join(os.path.dirname(data_path), "logs/log.txt"), "a+") as f:
-            f.write(
-                "best loss: {}, best acc: {}, at epoch: {}".format(
-                    best_dev_loss, best_dev_acc, best_dev_epoch
-                )
-            )
+        # TODO: log best values
 
         if test:
             _, test_loss, test_acc = self.predict(
@@ -514,69 +507,3 @@ class TreeCNN:
             SAVE_DIR + "%s.data-00000-of-00001" % old_path,
             SAVE_DIR + "%s.data-00000-of-00001" % new_path,
         )
-
-
-if __name__ == "__main__":
-
-    parser = argparse.ArgumentParser()
-    parser.add_argument("-d", "--dataset", default="ATT", required=False)
-    parser.add_argument("-b", "--batch", default=32, required=False)
-    parser.add_argument("-e", "--epoch", default=2, required=False)
-    parser.add_argument("-p", "--data_path", default="../data", required=False)
-    parser.add_argument("-k", "--bucketing", default="true", required=False)
-    parser.add_argument("-s", "--save_dir", default="../weights", required=False)
-    args = parser.parse_args()
-
-    config = Config()
-
-    name = args.dataset
-    config.batch_size = int(args.batch)
-    config.max_epochs = int(args.epoch)
-    data_path = args.data_path
-    save_dir = args.save_dir
-    # TODO: change this
-    SAVE_DIR = save_dir
-
-    config.data_path = os.path.join(
-        data_path, "{}-balanced-not-linked.csv".format(name)
-    )
-    config.trees_path = os.path.join(data_path, "trees/{}".format(name))
-    config.pre_trained_v_path = os.path.join(
-        os.path.dirname(data_path), "pre_trained/cbow_300/{}/all_vocab/vectors.npy"
-    ).format(name)
-    config.pre_trained_i_path = os.path.join(
-        os.path.dirname(data_path), "pre_trained/cbow_300/{}/all_vocab/w2indx.pkl"
-    ).format(name)
-
-    pickle_file = os.path.join(data_path, "generated_trees/{}.pkl".format(name))
-    if os.path.isfile(pickle_file):
-        f = open(pickle_file, "rb")
-        data = pickle.load(f, encoding="utf-8")
-    else:
-        data = treeDS.load_shrinked_trees(config.trees_path, config.data_path)
-        f = open(pickle_file, "wb")
-        pickle.dump(data, f)
-
-    train_perc = int(len(data) * 0.9)
-    train_data = data[:train_perc]
-    dev_data = data[train_perc:]
-    test_data = None
-
-    if args.bucketing == "true":
-        train_lens = [(len(t.get_words()), t) for t in train_data]
-        train_lens.sort(key=lambda x: x[0])
-        train_data = [t for i, t in train_lens]
-        del train_lens
-    model = TreeCNN(config, train_data, dev_data, test_data)
-
-    start_time = time.time()
-    stats = model.train(verbose=True)
-    end_time = time.time()
-    print("Done")
-    print(
-        "Time for training ",
-        config.model_name,
-        " is ",
-        ((end_time - start_time) / 60),
-        "mins",
-    )
