@@ -102,7 +102,7 @@ class Trainer:
             feed_dict[self.model.labels_placeholder] = [t.label for t in trees]
         return feed_dict
 
-    def predict(self, weights_path, get_pred_only=True, dataset=None, trees=None):
+    def predict(self, weights_path, get_loss=True, dataset=None, trees=None):
         """Make predictions from the provided model."""
         with tf.Session() as sess:
             saver = tf.train.Saver()
@@ -119,23 +119,18 @@ class Trainer:
                 feed_dict = self.feed_dict_train
             elif dataset == "val":
                 feed_dict = self.feed_dict_dev
-            if get_pred_only:
+            if not get_loss:
                 root_prediction = sess.run(
                     [self.model.root_prediction],
                     feed_dict=feed_dict,
                 )
                 return root_prediction
             else:
-                root_prediction, loss, root_acc, root_perc = sess.run(
-                    [
-                        self.model.root_prediction,
-                        self.model.loss,
-                        self.model.root_acc,
-                        self.model.root_percision,
-                    ],
+                root_prediction, loss = sess.run(
+                    [self.model.root_prediction, self.model.loss],
                     feed_dict=feed_dict,
                 )
-                return root_prediction, loss, root_acc, root_perc
+                return root_prediction, loss
 
     def predict_example(self, tree_path, weights_path):
         t = treeDS.load_tree(tree_path)
@@ -166,14 +161,14 @@ class Trainer:
             for batch in range(num_batches):
                 t1_ = time.time()
                 feed_dict = batches[batch]
-                loss_value, acc, _ = sess.run(
-                    [self.model.full_loss, self.model.root_acc, self.train_op],
+                loss_value, _ = sess.run(
+                    [self.model.full_loss, self.train_op],
                     feed_dict=feed_dict,
                 )
                 if verbose:
                     sys.stdout.write(
-                        "\r{} / {} :    loss = {} and acc = {}".format(
-                            batch, num_batches, loss_value, acc
+                        "\r{} / {} :    loss = {}".format(
+                            batch, num_batches, loss_value
                         )
                     )
                     sys.stdout.flush()
@@ -208,26 +203,23 @@ class Trainer:
             else:
                 self.run_epoch(batches=batches)
 
-            _, dev_loss, dev_acc, dev_prec = self.predict(
+            dev_pred, dev_loss = self.predict(
                 SAVE_DIR + "%s.temp" % self.config.model_name,
-                get_pred_only=False,
                 dataset="val",
             )
-            _, train_loss, train_acc, train_prec = self.predict(
+            train_pred, train_loss = self.predict(
                 SAVE_DIR + "%s.temp" % self.config.model_name,
-                get_pred_only=False,
                 dataset="train",
             )
+
+            dev_acc = self.get_accuracy(self.dev_data, dev_pred)
+
             print("\nDev loss : {} --- dev acc: {}".format(dev_loss, dev_acc))
             wandb.log(
                 {
                     "epoch": epoch + 1,
                     "dev_loss": dev_loss,
-                    "dev_acc": dev_acc,
-                    "dev_prec": dev_prec,
-                    "train_acc": train_acc,
                     "train_loss": train_loss,
-                    "train_prec": train_prec,
                 }
             )
 
@@ -276,3 +268,9 @@ class Trainer:
         # TODO: log best values
 
         return {"best_acc": best_dev_acc, "best_loss": best_dev_loss}
+
+    def get_accuracy(self, data, preds):
+        labels = [t.label for t in data]
+        labels = np.array(labels)
+        preds = np.array(preds)
+        return (preds == labels).mean()

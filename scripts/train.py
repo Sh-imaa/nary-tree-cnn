@@ -21,7 +21,6 @@ LOG_DIR = "./logs/"
 
 wandb.init(project="tree_cnn", entity="shimaa")
 
-
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
