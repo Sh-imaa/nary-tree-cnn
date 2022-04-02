@@ -34,6 +34,8 @@ if __name__ == "__main__":
     parser.add_argument("--save_dir", type=str, default="../weights", required=False)
     args = parser.parse_args()
 
+    if not os.path.exists(args.save_dir):
+        os.makedirs(args.save_dir)
     config = Dict(json.load(open("../configs/config.json")))
     config.update(args.__dict__)
     config.model_name = MODEL_STR % (

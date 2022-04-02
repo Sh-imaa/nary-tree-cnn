@@ -80,6 +80,5 @@ if __name__ == "__main__":
                 logits_all = logits
                 preds_all = preds
 
-        metrics = get_metrics(data, preds_all, logits_all)
-        print(f"The predictions are\n{preds_all}")
+        metrics, _, _ = get_metrics(data, preds_all, logits_all)
         print(metrics)

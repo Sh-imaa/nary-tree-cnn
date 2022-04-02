@@ -28,7 +28,4 @@ def get_metrics(data, preds, logits=None):
         "f1_minor_0": f1_minor_0,
         "roc": roc,
     }
-
-    plt.plot(fpr, tpr)
-    plt.show()
-    return metrics
+    return metrics, fpr, tpr

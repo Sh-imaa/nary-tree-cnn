@@ -15,7 +15,6 @@ import treeDS
 from train_utils import generate_batch
 
 MODEL_STR = "tree_cnn_lr=%f_l2=%f_dr1=%f_dr2=%f_batch_size=%d.weights"
-SAVE_DIR = "../weights/"
 LOG_DIR = "./logs/"
 
 
@@ -159,8 +158,6 @@ class Trainer:
                 )
                 sys.stdout.flush()
         saver = tf.train.Saver()
-        if not os.path.exists(SAVE_DIR):
-            os.makedirs(SAVE_DIR)
 
     def train(self, new_model=True, verbose=True):
         stopped = -1
@@ -185,7 +182,9 @@ class Trainer:
             if new_model:
                 sess.run(tf.global_variables_initializer())
             else:
-                saver.restore(sess, SAVE_DIR + self.config.model_name)
+                saver.restore(
+                    sess, os.path.join(self.config.save_dir, self.config.model_name)
+                )
             for epoch in range(self.config.max_epochs):
                 print("\nepoch %d" % epoch)
                 self.run_epoch(sess, batches=batches)
@@ -214,9 +213,12 @@ class Trainer:
                 if (dev_acc > best_dev_acc) or (
                     (dev_acc == best_dev_acc) and (dev_loss < best_dev_loss)
                 ):
-                    saver.save(sess, SAVE_DIR + self.config.model_name)
+                    saver.save(
+                        sess, os.path.join(self.config.save_dir, self.config.model_name)
+                    )
                     best_dev_acc = dev_acc
                     best_val_epoch = epoch
+                    best_dev_loss = dev_loss
 
                 if (epoch - best_val_epoch) > self.config.early_stopping:
                     stopped = epoch
