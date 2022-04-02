@@ -12,37 +12,13 @@ import wandb
 
 import utils
 import treeDS
-from train_utils import generate_batch, copy_weight_files
+from train_utils import generate_batch
 
-MODEL_STR = "tree_cnn_lr=%f_l2=%f_dr1=%f_dr2=%f_batch_size=%d.weights"
+
 SAVE_DIR = "../weights/"
 LOG_DIR = "./logs/"
 
 wandb.init(project="tree_cnn", entity="shimaa")
-
-
-class Config(object):
-    """Holds model hyperparams and data information.
-    Model objects are passed a Config() object at instantiation.
-    """
-
-    optimizer = "Adam"
-    embed_size = 44
-    label_size = 2
-    early_stopping = 20
-    act_fun = "relu"
-    max_epochs = 50
-    batch_size = 16
-    dropout1 = 0.5
-    dropout2 = 0.8
-    lr = 0.0015
-    lr_embd = 0.1
-    l2 = 0
-    diff_lr = False
-    trainable = True
-    name = "ASTD"
-
-    model_name = MODEL_STR % (lr, l2, dropout1, dropout2, batch_size)
 
 
 class TreeCNN:
@@ -170,9 +146,10 @@ class TreeCNN:
         # add projection layer
         self.logits = tf.matmul(self.roots, U) + bs
         self.logits = tf.nn.dropout(self.logits, self.dropout2_placeholder)
-        self.scores = tf.nn.softmax(self.logits)
-        self.root_prediction = tf.squeeze(tf.argmax(self.logits, 1))
-
+        self.scores = tf.nn.softmax(self.logits, name="scores")
+        self.root_prediction = tf.squeeze(
+            tf.argmax(self.logits, 1), name="root_prediction"
+        )
         # add loss layer
         regularization_loss = self.config.l2 * (
             tf.nn.l2_loss(filters) + tf.nn.l2_loss(U)

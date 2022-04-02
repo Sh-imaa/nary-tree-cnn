@@ -26,12 +26,3 @@ def generate_batch(data, batch_size):
             treeDS.get_max_nodes(tree.root, max_nodes)
             treeDS.pad(tree.root)
         yield new_batch
-
-
-def copy_weight_files(save_dir, new_path, old_path):
-    shutil.copyfile(save_dir + "%s.index" % old_path, save_dir + "%s.index" % new_path)
-    shutil.copyfile(save_dir + "%s.meta" % old_path, save_dir + "%s.meta" % new_path)
-    shutil.copyfile(
-        save_dir + "%s.data-00000-of-00001" % old_path,
-        save_dir + "%s.data-00000-of-00001" % new_path,
-    )
