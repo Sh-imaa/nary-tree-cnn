@@ -3,10 +3,12 @@ import argparse
 import os
 from collections import OrderedDict, defaultdict
 
+import numpy as np
 import tensorflow as tf
 
 import treeDS
 from train_utils import generate_batch
+from metrics import get_metrics
 
 
 def build_feed_dict(trees, vocab):
@@ -34,6 +36,7 @@ def build_feed_dict(trees, vocab):
             vocab.encode(node.word) if node.word else -1 for node in nodes_list
         ],
         "Input/n_examples_placeholder:0": len(trees),
+        "Input/labels_placeholder:0": [t.label for t in trees],
     }
 
     return feed_dict
@@ -42,8 +45,9 @@ def build_feed_dict(trees, vocab):
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--tree_path", type=str, required=True)
+    parser.add_argument("--data_path", type=str, required=True)
     parser.add_argument("--weights_path", type=str, required=True)
+    parser.add_argument("--batch_size", type=int, default=32, required=False)
 
     args = parser.parse_args()
 
@@ -55,14 +59,27 @@ if __name__ == "__main__":
         graph = tf.get_default_graph()
         graph_op = graph.get_operations()
 
-        f = open(args.tree_path, "rb")
-        t = treeDS.load_tree(args.tree_path)
+        f = open(args.data_path, "rb")
+        data = pickle.load(f, encoding="utf-8")
 
-        batch_generator = generate_batch([t], 1)
+        batch_generator = generate_batch(data, args.batch_size, one_epoch=True)
 
         f = open(os.path.join(args.weights_path, "vocab.pkl"), "rb")
         vocab = pickle.load(f, encoding="utf-8")
 
-        feed_dict = build_feed_dict(next(batch_generator), vocab)
-        logits, pred = sess.run(["scores:0", "root_prediction:0"], feed_dict=feed_dict)
-        print(f"The tree predicted label is {pred}, logits are {logits}")
+        logits_all, preds_all = None, None
+        for batch in batch_generator:
+            feed_dict = build_feed_dict(batch, vocab)
+            logits, preds = sess.run(
+                ["scores:0", "root_prediction:0"], feed_dict=feed_dict
+            )
+            if preds_all is not None:
+                logits_all = np.append(logits_all, logits, axis=0)
+                preds_all = np.append(preds_all, preds, axis=0)
+            else:
+                logits_all = logits
+                preds_all = preds
+
+        metrics = get_metrics(data, preds_all, logits_all)
+        print(f"The predictions are\n{preds_all}")
+        print(metrics)

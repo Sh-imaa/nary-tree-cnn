@@ -1,0 +1,20 @@
+{
+    "lr": 0.0015,
+    "lr_embd": 0.1,
+    "diff_lr": false,
+    "early_stopping": 20,
+    "batch_size": 32,
+    "max_epochs": 50,
+    "dropout1": 0.5,
+    "dropout2": 0.8,
+    "l2": 0,
+    "act_fun": "relu",
+    "optimizer": "Adam",
+    "trainable": true,
+    "dataset_name": "ASTD",
+    "model_name": "_",
+    "embed_size": 44,
+    "label_size": 2,
+    "data_path": "../data",
+    "bucketing": false
+}
