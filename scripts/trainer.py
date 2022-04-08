@@ -201,6 +201,8 @@ class Trainer:
 
                 metrics = self.get_metrics(self.dev_data, dev_pred)
                 dev_acc = metrics["acc"]
+                metrics_train = self.get_metrics(self.train_data, train_pred)
+                train_acc = metrics_train["acc"]
 
                 print("\nDev loss : {} --- dev metrics: {}".format(dev_loss, metrics))
                 wandb.log(
@@ -208,6 +210,8 @@ class Trainer:
                         f"{self.wandb_name}epoch": epoch + 1,
                         f"{self.wandb_name}dev_loss": dev_loss,
                         f"{self.wandb_name}train_loss": train_loss,
+                        f"{self.wandb_name}dev_acc": dev_acc,
+                        f"{self.wandb_name}train_acc": train_acc,
                     }
                 )
 
