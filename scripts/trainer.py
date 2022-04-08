@@ -19,11 +19,12 @@ LOG_DIR = "./logs/"
 
 
 class Trainer:
-    def __init__(self, model, config, train_data, dev_data):
+    def __init__(self, model, config, train_data, dev_data, wandb_name=""):
         self.model = model
         self.config = config
         self.train_data = train_data
         self.dev_data = dev_data
+        self.wandb_name = wandb_name
 
         print(
             "Training on {} examples, validating on {} examples.".format(
@@ -204,9 +205,9 @@ class Trainer:
                 print("\nDev loss : {} --- dev metrics: {}".format(dev_loss, metrics))
                 wandb.log(
                     {
-                        "epoch": epoch + 1,
-                        "dev_loss": dev_loss,
-                        "train_loss": train_loss,
+                        f"{self.wandb_name}epoch": epoch + 1,
+                        f"{self.wandb_name}dev_loss": dev_loss,
+                        f"{self.wandb_name}train_loss": train_loss,
                     }
                 )
 
