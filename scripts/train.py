@@ -8,7 +8,6 @@ import argparse
 import json
 from addict import Dict
 
-
 import tensorflow as tf
 from tensorflow.python.ops import variable_scope, init_ops
 import wandb
@@ -32,11 +31,14 @@ if __name__ == "__main__":
     parser.add_argument("--max_epochs", type=int, default=2, required=False)
     parser.add_argument("--data_path", type=str, default="../data", required=False)
     parser.add_argument("--save_dir", type=str, default="../weights", required=False)
+    parser.add_argument(
+        "--config_path", type=str, default="../configs/config.json", required=False
+    )
     args = parser.parse_args()
 
     if not os.path.exists(args.save_dir):
         os.makedirs(args.save_dir)
-    config = Dict(json.load(open("../configs/config.json")))
+    config = Dict(json.load(open(args.config_path)))
     config.update(args.__dict__)
     config.model_name = MODEL_STR % (
         config.lr,
