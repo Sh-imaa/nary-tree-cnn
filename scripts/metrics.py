@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.metrics import roc_auc_score, roc_curve
+from sklearn.metrics import f1_score
 
 
 def get_metrics(data, preds, logits=None):
@@ -15,17 +16,22 @@ def get_metrics(data, preds, logits=None):
 
     perc = tp / (tp + fp)
     recall = tp / (tp + fn)
-    f1_minor_1 = 2 * perc * recall / (perc + recall)
-    f1_minor_0 = tn / (tn + 0.5 * (fp + fn))
-    roc = roc_auc_score(labels, logits[:, 1])
-    fpr, tpr, _ = roc_curve(labels, logits[:, 1])
+    specificity = tn / (tn + fp)
+    npv = tn / (tn + fn)
+    ruc = roc_auc_score(labels, logits[:, 1])
+    f1_avg = f1_score(labels, preds, average="macro")
+    f1_pos_1 = f1_score(labels, preds, pos_label=1)
+    f1_pos_0 = f1_score(labels, preds, pos_label=0)
 
     metrics = {
         "acc": acc,
-        "perc": perc,
-        "recall": recall,
-        "f1_minor_1": f1_minor_1,
-        "f1_minor_0": f1_minor_0,
-        "roc": roc,
+        "perc/ppv": perc,
+        "npv": perc,
+        "recall/senstivity": recall,
+        "specificity": specificity,
+        "f1_avg": f1_avg,
+        "f1_pos_1": f1_pos_1,
+        "f1_pos_0": f1_pos_0,
+        "ruc": ruc,
     }
-    return metrics, fpr, tpr
+    return metrics

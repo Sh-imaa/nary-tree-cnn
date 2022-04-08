@@ -48,6 +48,7 @@ if __name__ == "__main__":
     parser.add_argument("--data_path", type=str, required=True)
     parser.add_argument("--weights_path", type=str, required=True)
     parser.add_argument("--batch_size", type=int, default=32, required=False)
+    parser.add_argument("--save_path", type=str, default=".", required=False)
 
     args = parser.parse_args()
 
@@ -80,5 +81,12 @@ if __name__ == "__main__":
                 logits_all = logits
                 preds_all = preds
 
-        metrics, _, _ = get_metrics(data, preds_all, logits_all)
+        metrics = get_metrics(data, preds_all, logits_all)
+
+        # save preds and labels
+        pickle.dump(preds_all, open(os.path.join(args.save_path, "preds.pkl"), "wb"))
+        pickle.dump(logits_all, open(os.path.join(args.save_path, "logits.pkl"), "wb"))
+        labels = [t.label for t in data]
+        pickle.dump(labels, open(os.path.join(args.save_path, "labels.pkl"), "wb"))
+
         print(metrics)
