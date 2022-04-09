@@ -152,7 +152,7 @@ class TreeCNN:
         )
         # add loss layer
         regularization_loss = self.config.l2 * (
-            tf.reduce_sum(tf.math.abs(filters)) + tf.reduce_sum(tf.math.abs(U))
+            tf.nn.l2_loss(filters) + tf.nn.l2_loss(U)
         )
 
         self.loss = tf.reduce_sum(
