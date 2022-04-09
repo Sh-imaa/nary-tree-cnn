@@ -36,6 +36,13 @@ if __name__ == "__main__":
     parser.add_argument("--data_path", type=str, default="../data", required=False)
     parser.add_argument("--save_dir", type=str, default="../weights", required=False)
     parser.add_argument(
+        "--folds",
+        nargs="*",
+        type=int,
+        default=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+        required=False,
+    )
+    parser.add_argument(
         "--config_path", type=str, default="../configs/config.json", required=False
     )
     args = parser.parse_args()
@@ -84,6 +91,8 @@ if __name__ == "__main__":
     labels = [tree.label for tree in data]
     main_save_path = config.save_dir
     for fold_num, (train_index, test_index) in enumerate(skf.split(data, labels)):
+        if not (fold_num in args.folds):
+            continue
         tf.reset_default_graph()
         config.save_dir = f"{main_save_path}_fold{fold_num}"
         train_data = list(np.array(data)[train_index])

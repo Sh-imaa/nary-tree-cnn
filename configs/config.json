@@ -2,7 +2,7 @@
     "lr": 0.001,
     "lr_embd": 0.1,
     "diff_lr": false,
-    "early_stopping": 20,
+    "early_stopping": 10,
     "batch_size": 32,
     "max_epochs": 50,
     "dropout1": 0.5,
