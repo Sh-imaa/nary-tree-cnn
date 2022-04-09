@@ -101,8 +101,8 @@ if __name__ == "__main__":
 
     f = open(os.path.join(args.save_dir, "vocab.pkl"), "wb")
     pickle.dump(vocab, f)
-
     config.embed_size = vocab.pre_trained_embeddings.shape[1]
+    wandb.log(config)
     model = TreeCNN(config, vocab)
     trainer = Trainer(model, config, train_data, dev_data)
 

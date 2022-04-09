@@ -109,6 +109,7 @@ if __name__ == "__main__":
         pickle.dump(vocab, f)
 
         config.embed_size = vocab.pre_trained_embeddings.shape[1]
+        wandb.log(config)
         model = TreeCNN(config, vocab)
         trainer = Trainer(
             model, config, train_data, dev_data, wandb_name=f"fold_{fold_num}"
