@@ -3,5 +3,6 @@ data/
 weights/
 pre_trained/
 scripts/wandb/
+analysis_files/
 logs/
 *.pyc
