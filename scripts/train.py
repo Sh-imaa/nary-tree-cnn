@@ -27,7 +27,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataset", type=str, default="ATT", required=False)
-    parser.add_argument("--batch", type=int, default=32, required=False)
+    parser.add_argument("--batch_size", type=int, default=32, required=False)
     parser.add_argument("--max_epochs", type=int, default=2, required=False)
     parser.add_argument("--data_path", type=str, default="../data", required=False)
     parser.add_argument("--save_dir", type=str, default="../weights", required=False)
