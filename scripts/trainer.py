@@ -13,6 +13,8 @@ import wandb
 import utils
 import treeDS
 from train_utils import generate_batch
+from metrics import get_metrics
+
 
 MODEL_STR = "tree_cnn_lr=%f_l2=%f_dr1=%f_dr2=%f_batch_size=%d.weights"
 LOG_DIR = "./logs/"
@@ -115,17 +117,17 @@ class Trainer:
         elif dataset == "val":
             feed_dict = self.feed_dict_dev
         if not get_loss:
-            root_prediction = sess.run(
-                [self.model.root_prediction],
+            logits, root_prediction = sess.run(
+                [self.model.scores, self.model.root_prediction],
                 feed_dict=feed_dict,
             )
             return root_prediction
         else:
-            root_prediction, loss = sess.run(
-                [self.model.root_prediction, self.model.loss],
+            logits, root_prediction, loss = sess.run(
+                [self.model.scores, self.model.root_prediction, self.model.loss],
                 feed_dict=feed_dict,
             )
-            return root_prediction, loss
+            return root_prediction, loss, logits
 
     def predict_example(self, tree_path, weights_path):
         t = treeDS.load_tree(tree_path)
@@ -190,30 +192,38 @@ class Trainer:
                 print("\nepoch %d" % epoch)
                 self.run_epoch(sess, batches=batches)
 
-                dev_pred, dev_loss = self.predict(
+                dev_pred, dev_loss, dev_logits = self.predict(
                     sess,
                     dataset="val",
                 )
-                train_pred, train_loss = self.predict(
+                train_pred, train_loss, dev_logits = self.predict(
                     sess,
                     dataset="train",
                 )
 
-                metrics = self.get_metrics(self.dev_data, dev_pred)
-                dev_acc = metrics["acc"]
-                metrics_train = self.get_metrics(self.train_data, train_pred)
-                train_acc = metrics_train["acc"]
+                dev_metrics = get_metrics(self.dev_data, dev_pred, dev_logits)
+                train_metrics = get_metrics(self.train_data, train_pred, train_logits)
 
-                print("\nDev loss : {} --- dev metrics: {}".format(dev_loss, metrics))
+                print(
+                    "\nDev loss : {} --- dev metrics: {}".format(dev_loss, dev_metrics)
+                )
+                dev_metrics = {
+                    f"{self.wandb_name}dev_{k}": dev_metrics[k]
+                    for k in dev_metrics.keys()
+                }
+                train_metrics = {
+                    f"{self.wandb_name}dev_{k}": train_metrics[k]
+                    for k in train_metrics.keys()
+                }
                 wandb.log(
                     {
                         f"{self.wandb_name}epoch": epoch + 1,
                         f"{self.wandb_name}dev_loss": dev_loss,
                         f"{self.wandb_name}train_loss": train_loss,
-                        f"{self.wandb_name}dev_acc": dev_acc,
-                        f"{self.wandb_name}train_acc": train_acc,
                     }
                 )
+                wandb.log(dev_metrics)
+                wandb.log(train_metrics)
 
                 if (dev_acc > best_dev_acc) or (
                     (dev_acc == best_dev_acc) and (dev_loss < best_dev_loss)
