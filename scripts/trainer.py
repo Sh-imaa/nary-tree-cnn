@@ -216,15 +216,16 @@ class Trainer:
                     f"{self.wandb_name}train_{k}": train_metrics[k]
                     for k in train_metrics.keys()
                 }
-                wandb.log(
-                    {
-                        f"{self.wandb_name}epoch": epoch + 1,
-                        f"{self.wandb_name}dev_loss": dev_loss,
-                        f"{self.wandb_name}train_loss": train_loss,
-                    }
-                )
-                wandb.log(dev_metrics)
-                wandb.log(train_metrics)
+                logs = {}
+                loss_logs = {
+                    f"{self.wandb_name}epoch": epoch + 1,
+                    f"{self.wandb_name}dev_loss": dev_loss,
+                    f"{self.wandb_name}train_loss": train_loss,
+                }
+                logs.update(dev_metrics)
+                logs.update(train_metrics)
+                logs.update(loss_logs)
+                wandb.log(logs)
 
                 if (dev_acc > best_dev_acc) or (
                     (dev_acc == best_dev_acc) and (dev_loss < best_dev_loss)
