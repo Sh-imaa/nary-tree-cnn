@@ -121,7 +121,7 @@ class Trainer:
                 [self.model.scores, self.model.root_prediction],
                 feed_dict=feed_dict,
             )
-            return root_prediction
+            return root_prediction, logits
         else:
             logits, root_prediction, loss = sess.run(
                 [self.model.scores, self.model.root_prediction, self.model.loss],
@@ -196,12 +196,13 @@ class Trainer:
                     sess,
                     dataset="val",
                 )
-                train_pred, train_loss, dev_logits = self.predict(
+                train_pred, train_loss, train_logits = self.predict(
                     sess,
                     dataset="train",
                 )
-
+                print(train_pred.shape)
                 dev_metrics = get_metrics(self.dev_data, dev_pred, dev_logits)
+                dev_acc = dev_metrics["acc"]
                 train_metrics = get_metrics(self.train_data, train_pred, train_logits)
 
                 print(
@@ -212,7 +213,7 @@ class Trainer:
                     for k in dev_metrics.keys()
                 }
                 train_metrics = {
-                    f"{self.wandb_name}dev_{k}": train_metrics[k]
+                    f"{self.wandb_name}train_{k}": train_metrics[k]
                     for k in train_metrics.keys()
                 }
                 wandb.log(
