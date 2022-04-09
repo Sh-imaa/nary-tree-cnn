@@ -47,8 +47,6 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    if not os.path.exists(args.save_dir):
-        os.makedirs(args.save_dir)
     config = Dict(json.load(open(args.config_path)))
     config.update(args.__dict__)
     config.model_name = MODEL_STR % (
@@ -95,11 +93,13 @@ if __name__ == "__main__":
             continue
         tf.reset_default_graph()
         config.save_dir = f"{main_save_path}_fold{fold_num}"
+        if not os.path.exists(config.save_dir):
+            os.makedirs(config.save_dir)
         train_data = list(np.array(data)[train_index])
         dev_data = list(np.array(data)[test_index])
-        f = open(os.path.join(args.save_dir, f"dev_data_{fold_num}.pkl"), "wb")
+        f = open(os.path.join(config.save_dir, f"dev_data_{fold_num}.pkl"), "wb")
         pickle.dump(dev_data, f)
-        f = open(os.path.join(args.save_dir, f"train_data_{fold_num}.pkl"), "wb")
+        f = open(os.path.join(config.save_dir, f"train_data_{fold_num}.pkl"), "wb")
         pickle.dump(train_data, f)
 
         if config.bucketing:
@@ -114,7 +114,7 @@ if __name__ == "__main__":
             arabic=True,
         )
 
-        f = open(os.path.join(args.save_dir, "vocab.pkl"), "wb")
+        f = open(os.path.join(config.save_dir, "vocab.pkl"), "wb")
         pickle.dump(vocab, f)
 
         config.embed_size = vocab.pre_trained_embeddings.shape[1]
