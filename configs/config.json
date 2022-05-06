@@ -11,7 +11,6 @@
     "act_fun": "relu",
     "optimizer": "Adam",
     "trainable": true,
-    "dataset_name": "ASTD",
     "model_name": "_",
     "embed_size": 44,
     "label_size": 2,

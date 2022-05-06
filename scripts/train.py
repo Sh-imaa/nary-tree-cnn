@@ -27,6 +27,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataset", type=str, default="ATT", required=False)
+    parser.add_argument("--early_stopping", type=int, default=50, required=False)
     parser.add_argument("--batch_size", type=float, default=32, required=False)
     parser.add_argument("--l2", type=float, default=0, required=False)
     parser.add_argument("--lr", type=float, default=0.001, required=False)
@@ -78,6 +79,7 @@ if __name__ == "__main__":
         data = treeDS.load_shrinked_trees(config.trees_path, config.dataset_path)
         f = open(pickle_file, "wb")
         pickle.dump(data, f)
+        input("Enter")
 
     train_perc = int(len(data) * 0.9)
     train_data = data[:train_perc]

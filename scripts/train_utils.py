@@ -9,7 +9,7 @@ def generate_batch(data, batch_size, one_epoch=False):
     data_size = len(data)
     end_of_epoch = False
     while not (one_epoch and end_of_epoch):
-        i2 = min(i1 + batch_size, data_size)
+        i2 = int(min(i1 + batch_size, data_size))
         new_batch = data[i1:i2]
         end_of_epoch = i2 == data_size
         i1 = i2 % data_size
