@@ -29,6 +29,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataset", type=str, default="ATT", required=False)
     parser.add_argument("--batch_size", type=int, default=32, required=False)
+    parser.add_argument("--early_stopping", type=int, default=50, required=False)
     parser.add_argument("--l2", type=float, default=0, required=False)
     parser.add_argument("--lr", type=float, default=0.001, required=False)
     parser.add_argument("--dropout1", type=float, default=0.5, required=False)
