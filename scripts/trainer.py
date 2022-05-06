@@ -270,6 +270,10 @@ class Trainer:
 
         metrics = {
             "acc": acc,
+            "tp": tp,
+            "tn": tn,
+            "fp": fp,
+            "fn": fn,
             "perc": perc,
             "recall": recall,
             "f1_minor_1": f1_minor_1,
