@@ -12,6 +12,8 @@ def get_sentences(lines):
     tree = []
     sentence_tree = []
     for line in lines:
+        if ("ROOT" in line) and (not new_sentence):
+            new_sentence = True
         if (line[:8] == "Sentence") and new_sentence:
             s = " ".join(sentence_tree)
             s = re.sub("\s+", " ", s)
@@ -26,6 +28,7 @@ def get_sentences(lines):
             new_sentence = True
 
     s = " ".join(sentence_tree)
+
     s = re.sub("\s+", " ", s)
     s = re.sub("\(", "( ", s)
     s = re.sub("\)", " )", s)
@@ -177,8 +180,13 @@ def pad(node):
 def load_shrinked_trees(trees_path, data_path):
     print("loading trees ....")
     df = pd.read_csv(data_path)
+    n = len(df)
     trees = []
-    for folder in os.listdir(trees_path):
+    for i, folder in enumerate(os.listdir(trees_path)):
+        # if (i % 1000) == 0:
+        #     perc = (i / n) * 100
+        #     print(f"processed {perc} percentage of the data")
+
         tree_folder = os.path.join(trees_path, folder)
         if os.listdir(tree_folder):
             tree_path = os.path.join(tree_folder, os.listdir(tree_folder)[0])
